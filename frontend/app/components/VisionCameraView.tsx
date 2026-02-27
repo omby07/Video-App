@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import { Worklets } from 'react-native-worklets-core';
+import { getSelfieSegments } from 'react-native-vision-camera-selfie-segmentation';
 
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
