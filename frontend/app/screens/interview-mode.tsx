@@ -514,9 +514,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 22,
   },
-  timerContainer: {
+  presenceBoostContainer: {
     position: 'absolute',
     top: 100,
+    left: 0,
+    right: 0,
+    zIndex: 6,
+  },
+  lightingContainer: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    zIndex: 6,
+  },
+  timerContainer: {
+    position: 'absolute',
+    top: 210,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -524,7 +538,7 @@ const styles = StyleSheet.create({
   },
   teleprompterContainer: {
     position: 'absolute',
-    top: 220,
+    top: 330,
     left: 0,
     right: 0,
     zIndex: 5,
