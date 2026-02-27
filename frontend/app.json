@@ -45,15 +45,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#000000"
         }
       ],
       [
-        "react-native-vision-camera",
+        "expo-camera",
         {
-          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera to record videos with custom backgrounds",
-          "enableMicrophonePermission": true,
-          "microphonePermissionText": "$(PRODUCT_NAME) needs access to your Microphone to record audio with videos"
+          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera to record videos",
+          "microphonePermissionText": "$(PRODUCT_NAME) needs access to your Microphone to record audio",
+          "recordAudioAndroid": true
         }
       ]
     ],
