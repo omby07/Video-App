@@ -22,7 +22,6 @@
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
     "@react-navigation/native-stack": "^7.3.10",
-    "@shopify/react-native-skia": "1.2.3",
     "@tensorflow-models/body-segmentation": "1.0.2",
     "@tensorflow/tfjs": "4.17.0",
     "@tensorflow/tfjs-backend-cpu": "4.17.0",
