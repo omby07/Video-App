@@ -149,15 +149,18 @@ backend:
 
   - task: "Premium upgrade API"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "low"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Created POST /api/settings/premium endpoint for mock paywall"
+        - working: true
+          agent: "testing"
+          comment: "✅ PREMIUM UPGRADE API TESTS PASSED - POST /settings/premium successfully upgrades user to premium status, sets is_premium to true, updates max_duration to 7200 seconds (120 minutes), and returns appropriate success message. Mock paywall functionality working correctly."
 
 frontend:
   - task: "Camera screen with recording"
