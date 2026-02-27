@@ -227,9 +227,9 @@ export default function BackgroundsScreen() {
 
         {/* Info */}
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle-outline" size={20} color="#888" />
-          <Text style={styles.infoText}>
-            Note: Advanced background replacement features are being developed. Current version supports color overlays and blur effects.
+          <Ionicons name="information-circle-outline" size={20} color="#4A90E2" />\n          <Text style={styles.infoText}>
+            <Text style={{ fontWeight: '700' }}>Currently Available:</Text> Color tints work as overlays.{'\n\n'}
+            <Text style={{ fontWeight: '700' }}>Coming Soon:</Text> Background blur and custom backgrounds require ML-based person segmentation to work properly (separating you from the background). This will be implemented in Phase 2 with proper ML integration or SDK.
           </Text>
         </View>
       </ScrollView>
