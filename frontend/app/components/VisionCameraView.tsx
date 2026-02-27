@@ -34,6 +34,7 @@ export default function VisionCameraView({
   
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [fps, setFps] = useState(0);
+  const [segmentedImage, setSegmentedImage] = useState<string>('');
   
   const frameCount = useSharedValue(0);
   const lastFpsUpdate = useSharedValue(Date.now());
