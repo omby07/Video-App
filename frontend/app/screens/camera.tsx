@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../src/store/useStore';
@@ -18,7 +19,8 @@ import { estimateProcessingTime, formatProcessingTime } from '../../src/utils/vi
 const { width, height } = Dimensions.get('window');
 
 export default function CameraScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const cameraRef = useRef<any>(null);
@@ -42,17 +44,55 @@ export default function CameraScreen() {
     };
   }, []);
 
-  if (!permission) {
-    return <View style={styles.container}><Text style={styles.text}>Requesting camera permission...</Text></View>;
-  }
+  // Request permissions on mount
+  useEffect(() => {
+    const requestPermissions = async () => {
+      if (!cameraPermission?.granted) {
+        await requestCameraPermission();
+      }
+      if (!micPermission?.granted) {
+        await requestMicPermission();
+      }
+    };
+    requestPermissions();
+  }, []);
 
-  if (!permission.granted) {
+  // Check if both permissions are needed and granted
+  const permissionsGranted = cameraPermission?.granted && micPermission?.granted;
+
+  if (!cameraPermission || !micPermission) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Camera permission is required</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
-        </TouchableOpacity>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera" size={48} color="#4A90E2" />
+          <Text style={styles.text}>Requesting permissions...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!permissionsGranted) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera-outline" size={48} color="#FF3B30" />
+          <Text style={styles.text}>Camera & Microphone permissions required</Text>
+          <Text style={styles.subText}>Please grant access to record videos</Text>
+          <View style={styles.permissionButtons}>
+            {!cameraPermission.granted && (
+              <TouchableOpacity style={styles.permissionButton} onPress={requestCameraPermission}>
+                <Ionicons name="camera" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Camera</Text>
+              </TouchableOpacity>
+            )}
+            {!micPermission.granted && (
+              <TouchableOpacity style={styles.permissionButton} onPress={requestMicPermission}>
+                <Ionicons name="mic" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Microphone</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
     );
   }
