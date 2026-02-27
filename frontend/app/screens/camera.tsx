@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,364 +8,269 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
-import { BACKGROUND_COLORS } from '../../src/constants';
-import { estimateProcessingTime, formatProcessingTime } from '../../src/utils/videoProcessor';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MLCameraView, { useMLCameraFeatures } from '../../src/components/MLCameraView';
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function CameraScreen() {
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { isNativeAvailable } = useMLCameraFeatures();
+  
+  // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const cameraRef = useRef<any>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const timerRef = useRef<any>(null);
-  const router = useRouter();
   
+  // Store
   const {
     cameraType,
     setCameraType,
     userSettings,
     selectedBackground,
+    filterSettings,
     audioEnabled,
     setAudioEnabled,
   } = useStore();
 
+  // Cleanup timer
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Request permissions on mount
-  useEffect(() => {
-    const requestPermissions = async () => {
-      if (!cameraPermission?.granted) {
-        await requestCameraPermission();
-      }
-      if (!micPermission?.granted) {
-        await requestMicPermission();
-      }
-    };
-    requestPermissions();
+  // Determine background effect type
+  const getBackgroundEffect = useCallback(() => {
+    if (!selectedBackground) return 'none';
+    if (selectedBackground.type === 'blur') return 'blur';
+    if (selectedBackground.type === 'color' || selectedBackground.type === 'professional') return 'color';
+    return 'none';
+  }, [selectedBackground]);
+
+  const handleCameraReady = useCallback(() => {
+    console.log('[CameraScreen] Camera ready');
+    setIsCameraReady(true);
   }, []);
 
-  // Check if both permissions are needed and granted
-  const permissionsGranted = cameraPermission?.granted && micPermission?.granted;
-
-  if (!cameraPermission || !micPermission) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera" size={48} color="#4A90E2" />
-          <Text style={styles.text}>Requesting permissions...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!permissionsGranted) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={48} color="#FF3B30" />
-          <Text style={styles.text}>Camera & Microphone permissions required</Text>
-          <Text style={styles.subText}>Please grant access to record videos</Text>
-          <View style={styles.permissionButtons}>
-            {!cameraPermission.granted && (
-              <TouchableOpacity style={styles.permissionButton} onPress={requestCameraPermission}>
-                <Ionicons name="camera" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Camera</Text>
-              </TouchableOpacity>
-            )}
-            {!micPermission.granted && (
-              <TouchableOpacity style={styles.permissionButton} onPress={requestMicPermission}>
-                <Ionicons name="mic" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Microphone</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  const startRecording = async () => {
-    console.log('[Camera] startRecording called, cameraRef:', !!cameraRef.current);
-    
-    if (!cameraRef.current) {
-      Alert.alert('Error', 'Camera not ready');
-      return;
-    }
-    
-    // Show disclaimer for long videos
-    if (recordingDuration === 0 && userSettings) {
-      const maxMinutes = Math.floor(userSettings.max_duration / 60);
-      const estimatedProcessing = estimateProcessingTime(
-        userSettings.max_duration,
-        userSettings.default_quality
-      );
-      
-      if (userSettings.max_duration >= 600) { // 10+ minutes
-        Alert.alert(
-          'Recording Notice',
-          `Recording up to ${maxMinutes} minutes in ${userSettings.default_quality.toUpperCase()}.\n\n` +
-          `After recording, your video will need ${formatProcessingTime(estimatedProcessing)} to apply effects.\n\n` +
-          `💡 Tip: You'll see effects in preview, but processing happens after recording.`,
-          [
-            { text: 'Got it', onPress: () => proceedWithRecording() }
-          ]
-        );
-        return;
-      }
-    }
-    
-    proceedWithRecording();
-  };
-
-  const proceedWithRecording = async () => {
-    console.log('[Camera] proceedWithRecording called');
-    
-    if (!cameraRef.current) {
-      console.error('[Camera] cameraRef is null');
-      Alert.alert('Error', 'Camera not initialized');
-      return;
-    }
-
-    try {
-      // Update UI immediately
-      setIsRecording(true);
-      setRecordingDuration(0);
-      
-      console.log('[Camera] Starting timer...');
-      
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingDuration(prev => {
-          const newDuration = prev + 1;
-          const maxDuration = userSettings?.max_duration || 1800;
-          
-          if (newDuration >= maxDuration) {
-            stopRecording();
-          }
-          
-          return newDuration;
-        });
-      }, 1000);
-      
-      console.log('[Camera] Calling recordAsync with mute:', !audioEnabled);
-      
-      // Start recording - this returns a promise that resolves when recording stops
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: userSettings?.max_duration || 1800,
+  const handleRecordingStarted = useCallback(() => {
+    console.log('[CameraScreen] Recording started');
+    setRecordingDuration(0);
+    timerRef.current = setInterval(() => {
+      setRecordingDuration(prev => {
+        const newDuration = prev + 1;
+        // Check max duration
+        if (userSettings?.max_duration && newDuration >= userSettings.max_duration) {
+          setIsRecording(false);
+        }
+        return newDuration;
       });
-      
-      console.log('[Camera] Recording finished, video:', video);
-      
-      // Clear timer
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      
-      setIsRecording(false);
-      
-      if (video && video.uri) {
-        console.log('[Camera] Navigating to preview with uri:', video.uri);
-        router.push({
-          pathname: '/screens/preview',
-          params: { 
-            videoUri: video.uri,
-            recordedDuration: recordingDuration.toString()
-          },
-        });
-      } else {
-        console.error('[Camera] No video URI returned');
-        Alert.alert('Error', 'Recording failed - no video captured');
-      }
-    } catch (error) {
-      console.error('[Camera] Recording error:', error);
-      
-      // Clear timer on error
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      
-      setIsRecording(false);
-      
-      // Provide helpful error message
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (errorMessage.includes('permission')) {
-        Alert.alert('Permission Error', 'Camera or microphone permission was denied');
-      } else if (Platform.OS === 'web') {
-        Alert.alert(
-          'Web Recording Limitations', 
-          'Video recording has limited support on web browsers. Please use the Expo Go app on your phone for full recording functionality.'
-        );
-      } else {
-        Alert.alert('Recording Error', errorMessage);
-      }
-    }
-  };
+    }, 1000);
+  }, [userSettings]);
 
-  const stopRecording = () => {
-    console.log('[Camera] stopRecording called, isRecording:', isRecording);
+  const handleRecordingFinished = useCallback((video: { uri: string; duration: number }) => {
+    console.log('[CameraScreen] Recording finished:', video);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     
-    if (cameraRef.current && isRecording) {
-      try {
-        console.log('[Camera] Calling stopRecording on cameraRef');
-        cameraRef.current.stopRecording();
-      } catch (error) {
-        console.error('[Camera] Error stopping recording:', error);
-      }
-      
-      setIsRecording(false);
-      
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  };
+    // Navigate to preview
+    router.push({
+      pathname: '/screens/preview',
+      params: {
+        videoUri: video.uri,
+        recordedDuration: video.duration.toString(),
+      },
+    });
+  }, [router]);
 
-  const toggleCameraType = () => {
+  const handleRecordingError = useCallback((error: Error) => {
+    console.error('[CameraScreen] Recording error:', error);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsRecording(false);
+    Alert.alert('Recording Error', error.message || 'Failed to record video');
+  }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (!isCameraReady) {
+      Alert.alert('Camera not ready', 'Please wait for the camera to initialize');
+      return;
+    }
+    setIsRecording(prev => !prev);
+  }, [isCameraReady]);
+
+  const toggleCamera = useCallback(() => {
     setCameraType(cameraType === 'back' ? 'front' : 'back');
-  };
+  }, [cameraType, setCameraType]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const maxDuration = userSettings?.max_duration || 1800;
-  const maxMinutes = Math.floor(maxDuration / 60);
+  // Get selected background color for display
+  const getBackgroundDisplayInfo = () => {
+    if (!selectedBackground) return null;
+    if (selectedBackground.type === 'blur') {
+      return { label: 'Blur', color: '#4ECDC4' };
+    }
+    if (selectedBackground.type === 'professional') {
+      return { label: selectedBackground.name || 'Professional', color: '#4ECDC4' };
+    }
+    if (selectedBackground.type === 'color') {
+      return { label: 'Color BG', color: selectedBackground.value };
+    }
+    return null;
+  };
+
+  const bgInfo = getBackgroundDisplayInfo();
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        facing={cameraType}
-        ref={cameraRef}
-        mode="video"
-      >
-        {/* Visual Effect Overlays - Preview Only */}
-        {/* Note: Only color overlays work properly. Blur and custom backgrounds require ML person segmentation */}
-        {selectedBackground && selectedBackground.type === 'color' && (
-          <View style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: BACKGROUND_COLORS.find(c => c.id === selectedBackground.value)?.color, opacity: 0.2 }
-          ]} />
-        )}
-        
-        {/* Effects Preview Notice - Only shown when effects are selected */}
-        {selectedBackground && selectedBackground.type === 'color' && (
-          <View style={styles.effectsNotice}>
-            <Ionicons name="eye-outline" size={14} color="#FFD700" />
-            <Text style={styles.effectsNoticeText}>Color tint preview • Full effects applied after recording</Text>
-          </View>
-        )}
-        
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/screens/settings')}
-          >
-            <Ionicons name="settings-outline" size={28} color="white" />
-          </TouchableOpacity>
-          
-          <View style={styles.timerContainer}>
-            <View style={[styles.recordingDot, isRecording && styles.recordingDotActive]} />
-            <Text style={styles.timerText}>{formatDuration(recordingDuration)} / {maxMinutes}min</Text>
-          </View>
-          
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/screens/gallery')}
-          >
-            <Ionicons name="images-outline" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
+      {/* ML Camera View - Full Screen */}
+      <MLCameraView
+        facing={cameraType as 'front' | 'back'}
+        isActive={true}
+        enableAudio={audioEnabled}
+        backgroundEffect={getBackgroundEffect() as any}
+        blurIntensity={selectedBackground?.blurIntensity || 50}
+        backgroundColor={selectedBackground?.value}
+        backgroundGradient={selectedBackground?.gradient}
+        filterSettings={filterSettings}
+        isRecording={isRecording}
+        onCameraReady={handleCameraReady}
+        onRecordingStarted={handleRecordingStarted}
+        onRecordingFinished={handleRecordingFinished}
+        onRecordingError={handleRecordingError}
+        showEffectBadges={false}
+        style={styles.fullScreenCamera}
+      />
 
-        {/* Background Indicator */}
-        {selectedBackground && (
-          <View style={styles.backgroundIndicator}>
-            <Ionicons name="image-outline" size={16} color="white" />
-            <Text style={styles.backgroundText}>
-              {selectedBackground.type === 'blur' ? 'Blur' : 'Custom BG'}
-            </Text>
-          </View>
-        )}
-
-        {/* Bottom Controls */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/screens/backgrounds')}
-          >
-            <Ionicons name="color-palette-outline" size={32} color="white" />
-            <Text style={styles.iconLabel}>Background</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.recordButton, isRecording && styles.recordingButton]}
-            onPress={isRecording ? stopRecording : startRecording}
-          >
-            {isRecording ? (
-              <View style={styles.stopIcon} />
-            ) : (
-              <View style={styles.recordIcon} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={toggleCameraType}
-          >
-            <Ionicons name="camera-reverse-outline" size={32} color="white" />
-            <Text style={styles.iconLabel}>Flip</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter Preview Button */}
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => router.push('/screens/filters')}
-        >
-          <Ionicons name="sparkles-outline" size={24} color="white" />
-          <Text style={styles.filterButtonText}>Touch Up</Text>
+      {/* Top Bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.topButton} onPress={() => router.back()}>
+          <Ionicons name="close" size={28} color="#fff" />
         </TouchableOpacity>
+        
+        {/* Recording Timer */}
+        {isRecording && (
+          <View style={styles.recordingTimer}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingTimerText}>{formatDuration(recordingDuration)}</Text>
+          </View>
+        )}
+        
+        <TouchableOpacity style={styles.topButton} onPress={() => router.push('/screens/settings')}>
+          <Ionicons name="settings-outline" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
-        {/* Interview Mode Button - NEW FEATURE */}
-        <TouchableOpacity
-          style={styles.interviewModeButton}
+      {/* Side Controls */}
+      <View style={styles.sideControls}>
+        {/* Flip Camera */}
+        <TouchableOpacity style={styles.sideButton} onPress={toggleCamera}>
+          <Ionicons name="camera-reverse" size={24} color="#fff" />
+          <Text style={styles.sideButtonText}>Flip</Text>
+        </TouchableOpacity>
+        
+        {/* Audio Toggle */}
+        <TouchableOpacity style={styles.sideButton} onPress={() => setAudioEnabled(!audioEnabled)}>
+          <Ionicons name={audioEnabled ? "mic" : "mic-off"} size={24} color={audioEnabled ? "#fff" : "#FF3B30"} />
+          <Text style={styles.sideButtonText}>{audioEnabled ? "Mic On" : "Mic Off"}</Text>
+        </TouchableOpacity>
+        
+        {/* Interview Mode */}
+        <TouchableOpacity 
+          style={[styles.sideButton, styles.interviewButton]} 
           onPress={() => router.push('/screens/interview-mode')}
         >
-          <Ionicons name="briefcase" size={22} color="#4ECDC4" />
-          <Text style={styles.interviewModeText}>Interview Mode</Text>
+          <Ionicons name="briefcase" size={24} color="#4ECDC4" />
+          <Text style={[styles.sideButtonText, { color: '#4ECDC4' }]}>Interview</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Effect Indicators */}
+      {(bgInfo || (filterSettings && filterSettings.brightness !== 0)) && (
+        <View style={styles.effectIndicators}>
+          {bgInfo && (
+            <View style={[styles.effectBadge, { backgroundColor: 'rgba(78,205,196,0.9)' }]}>
+              <Ionicons name="layers" size={14} color="#fff" />
+              <Text style={styles.effectBadgeText}>{bgInfo.label}</Text>
+            </View>
+          )}
+          {filterSettings && (filterSettings.brightness !== 0 || filterSettings.contrast !== 0 || filterSettings.smoothing > 0) && (
+            <View style={[styles.effectBadge, { backgroundColor: 'rgba(255,179,71,0.9)' }]}>
+              <Ionicons name="color-wand" size={14} color="#fff" />
+              <Text style={styles.effectBadgeText}>Touch-up</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Bottom Controls */}
+      <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
+        {/* Background Button */}
+        <TouchableOpacity 
+          style={styles.bottomButton} 
+          onPress={() => router.push('/screens/backgrounds')}
+          disabled={isRecording}
+        >
+          <View style={[styles.bottomButtonIcon, bgInfo && { borderColor: '#4ECDC4' }]}>
+            <Ionicons name="image-outline" size={22} color={bgInfo ? "#4ECDC4" : "#fff"} />
+          </View>
+          <Text style={styles.bottomButtonText}>Background</Text>
         </TouchableOpacity>
 
-        {/* Audio Toggle Button */}
+        {/* Record Button */}
         <TouchableOpacity
-          style={styles.audioButton}
-          onPress={() => setAudioEnabled(!audioEnabled)}
+          style={[styles.recordButton, isRecording && styles.recordButtonActive]}
+          onPress={toggleRecording}
+          disabled={!isCameraReady}
         >
-          <Ionicons 
-            name={audioEnabled ? "mic" : "mic-off"} 
-            size={24} 
-            color={audioEnabled ? "white" : "#FF3B30"} 
-          />
+          {isRecording ? (
+            <View style={styles.stopIcon} />
+          ) : (
+            <View style={styles.recordInner} />
+          )}
         </TouchableOpacity>
-      </CameraView>
+
+        {/* Filters Button */}
+        <TouchableOpacity 
+          style={styles.bottomButton} 
+          onPress={() => router.push('/screens/filters')}
+          disabled={isRecording}
+        >
+          <View style={[
+            styles.bottomButtonIcon, 
+            filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) && { borderColor: '#FFB347' }
+          ]}>
+            <Ionicons 
+              name="sparkles-outline" 
+              size={22} 
+              color={filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) ? "#FFB347" : "#fff"} 
+            />
+          </View>
+          <Text style={styles.bottomButtonText}>Touch-up</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Camera Loading */}
+      {!isCameraReady && (
+        <View style={styles.loadingOverlay}>
+          <Ionicons name="videocam" size={48} color="#4ECDC4" />
+          <Text style={styles.loadingText}>Initializing camera...</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -374,202 +279,166 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  permissionContainer: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  subText: {
-    color: '#888',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  permissionButtons: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  camera: {
-    flex: 1,
-  },
-  text: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  permissionButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  fullScreenCamera: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
   topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 16,
+    zIndex: 10,
   },
-  timerContainer: {
+  topButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordingTimer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,59,48,0.9)',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    gap: 8,
   },
   recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#888',
-    marginRight: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
   },
-  recordingDotActive: {
-    backgroundColor: '#FF3B30',
-  },
-  timerText: {
+  recordingTimerText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  backgroundIndicator: {
+  sideControls: {
     position: 'absolute',
-    top: 120,
+    right: 16,
+    top: '30%',
+    gap: 20,
+    zIndex: 10,
+  },
+  sideButton: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  sideButtonText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  interviewButton: {
+    backgroundColor: 'rgba(78,205,196,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(78,205,196,0.4)',
+  },
+  effectIndicators: {
+    position: 'absolute',
+    top: 110,
     left: 16,
+    gap: 8,
+    zIndex: 10,
+  },
+  effectBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    gap: 6,
   },
-  backgroundText: {
+  effectBadgeText: {
     color: '#fff',
     fontSize: 12,
-    marginLeft: 4,
+    fontWeight: '600',
   },
-  bottomBar: {
+  bottomControls: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
+    zIndex: 10,
   },
-  iconButton: {
+  bottomButton: {
     alignItems: 'center',
+    gap: 8,
   },
-  iconLabel: {
+  bottomButtonIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  bottomButtonText: {
     color: '#fff',
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '500',
   },
   recordButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
     borderColor: '#fff',
   },
-  recordingButton: {
+  recordButtonActive: {
     backgroundColor: 'rgba(255,59,48,0.3)',
+    borderColor: '#FF3B30',
   },
-  recordIcon: {
+  recordInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: '#FF3B30',
   },
   stopIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 4,
     backgroundColor: '#fff',
   },
-  filterButton: {
-    position: 'absolute',
-    top: 120,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74,144,226,0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-  },
-  filterButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  audioButton: {
-    position: 'absolute',
-    bottom: 150,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    zIndex: 20,
   },
-  effectsNotice: {
-    position: 'absolute',
-    bottom: 150,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  effectsNoticeText: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  interviewModeButton: {
-    position: 'absolute',
-    top: 180,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(78,205,196,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'rgba(78,205,196,0.4)',
-  },
-  interviewModeText: {
-    color: '#4ECDC4',
-    fontSize: 13,
-    fontWeight: '700',
-    marginLeft: 8,
+  loadingText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 16,
   },
 });
