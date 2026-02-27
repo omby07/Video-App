@@ -210,6 +210,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Developer Tools</Text>
           <TouchableOpacity
             style={styles.devToolButton}
+            onPress={() => router.push('/screens/vision-camera-test')}
+          >
+            <Ionicons name="videocam" size={24} color="#7ED321" />
+            <Text style={styles.devToolText}>Vision Camera Test</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.devToolButton}
             onPress={() => router.push('/screens/segmentation-test')}
           >
             <Ionicons name="flask" size={24} color="#4A90E2" />
