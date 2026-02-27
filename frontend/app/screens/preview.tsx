@@ -52,12 +52,11 @@ export default function PreviewScreen() {
       const { uri: thumbnailUri } = await VideoThumbnails.getThumbnailAsync(uri, {
         time: 0,
       });
-      const base64 = await FileSystem.readAsStringAsync(thumbnailUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      return `data:image/jpeg;base64,${base64}`;
+      // Skip base64 conversion - just use the thumbnail URI directly for now
+      // The FileSystem.EncodingType.Base64 is deprecated in newer expo versions
+      return thumbnailUri;
     } catch (error) {
-      console.error('[Preview] Thumbnail generation failed:', error);
+      console.log('[Preview] Thumbnail generation skipped:', error);
       return null;
     }
   };
