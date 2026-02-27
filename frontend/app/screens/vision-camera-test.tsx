@@ -236,6 +236,7 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
   statusLabel: {
@@ -249,6 +250,13 @@ const styles = StyleSheet.create({
   },
   statusReady: {
     color: '#7ED321',
+  },
+  colorDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -272,6 +280,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  recordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,59,48,0.3)',
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+    marginBottom: 16,
+  },
+  recordButtonActive: {
+    backgroundColor: 'rgba(255,59,48,0.8)',
+  },
+  recordIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FF3B30',
+  },
+  stopIcon: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    backgroundColor: '#fff',
+  },
+  recordButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   settingRow: {
     flexDirection: 'row',
