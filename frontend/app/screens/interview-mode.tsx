@@ -19,15 +19,12 @@ import Teleprompter from '../../src/components/Teleprompter';
 import EnergyMeter from '../../src/components/EnergyMeter';
 import InterviewTimer from '../../src/components/InterviewTimer';
 import RetakeControl from '../../src/components/RetakeControl';
-import PresenceBoost from '../../src/components/PresenceBoost';
-import FramingGuide from '../../src/components/FramingGuide';
-import LightingIndicator from '../../src/components/LightingIndicator';
 
 // Types & Store
 import { InterviewPrompt, DEFAULT_PROMPTS } from '../../src/types';
 import { useStore } from '../../src/store/useStore';
 
-const { width, height } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function InterviewModeScreen() {
   const router = useRouter();
@@ -46,7 +43,7 @@ export default function InterviewModeScreen() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const timerRef = useRef<any>(null);
   
-  // Audio level simulation (in real native build, this would use actual audio metering)
+  // Audio level simulation
   const [audioLevel, setAudioLevel] = useState(0);
   const audioLevelRef = useRef<any>(null);
   
@@ -54,14 +51,8 @@ export default function InterviewModeScreen() {
   const [currentPrompt, setCurrentPrompt] = useState<InterviewPrompt>(DEFAULT_PROMPTS[0]);
   const [isTeleprompterMinimized, setIsTeleprompterMinimized] = useState(false);
   
-  // Presence Boost state (Phase 2 features)
-  const [presenceBoostActive, setPresenceBoostActive] = useState(true);
-  const [showFramingGuide, setShowFramingGuide] = useState(true);
-  const [faceDetected, setFaceDetected] = useState(true); // Simulated
-  const [faceCentered, setFaceCentered] = useState(false); // Simulated
-  const [lightingLevel, setLightingLevel] = useState(65); // Simulated (0-100)
-  const [facePosition, setFacePosition] = useState<any>(null);
-  const lightingRef = useRef<any>(null);
+  // UI state - simplified
+  const [showOverlays, setShowOverlays] = useState(true);
   
   // Store
   const { cameraType, setCameraType, userSettings } = useStore();
@@ -80,51 +71,12 @@ export default function InterviewModeScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (audioLevelRef.current) clearInterval(audioLevelRef.current);
-      if (lightingRef.current) clearInterval(lightingRef.current);
     };
   }, []);
 
-  // Simulate presence boost data (in native build, use ML face detection)
-  useEffect(() => {
-    if (presenceBoostActive && isCameraReady) {
-      // Simulate lighting level variations
-      lightingRef.current = setInterval(() => {
-        setLightingLevel(prev => {
-          const variation = (Math.random() - 0.5) * 10;
-          return Math.max(20, Math.min(90, prev + variation));
-        });
-      }, 2000);
-
-      // Simulate face detection with occasional state changes
-      const faceInterval = setInterval(() => {
-        // 90% of time face is detected when camera is ready
-        setFaceDetected(Math.random() > 0.1);
-        // 70% of time face is centered when detected
-        setFaceCentered(faceDetected && Math.random() > 0.3);
-        // Simulate face position
-        if (faceDetected) {
-          setFacePosition({
-            x: 0.4 + Math.random() * 0.2,
-            y: 0.25 + Math.random() * 0.15,
-            width: 0.3,
-            height: 0.35,
-          });
-        } else {
-          setFacePosition(null);
-        }
-      }, 3000);
-
-      return () => {
-        clearInterval(faceInterval);
-        if (lightingRef.current) clearInterval(lightingRef.current);
-      };
-    }
-  }, [presenceBoostActive, isCameraReady, faceDetected]);
-
-  // Simulate audio levels (in native build, use expo-av or native audio metering)
+  // Simulate audio levels
   const startAudioLevelSimulation = useCallback(() => {
     audioLevelRef.current = setInterval(() => {
-      // Simulate natural speech patterns
       const baseLevel = 40 + Math.random() * 30;
       const spike = Math.random() > 0.7 ? Math.random() * 20 : 0;
       setAudioLevel(Math.min(100, baseLevel + spike));
@@ -148,21 +100,18 @@ export default function InterviewModeScreen() {
     try {
       setIsRecording(true);
       setRecordingDuration(0);
+      setIsTeleprompterMinimized(false); // Show teleprompter when recording
       
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
       
-      // Start audio level monitoring
       startAudioLevelSimulation();
       
-      // Start actual recording
       const video = await cameraRef.current.recordAsync({
         maxDuration: userSettings?.max_duration || 1800,
       });
       
-      // Recording finished
       stopRecording();
       
       if (video?.uri) {
@@ -181,8 +130,8 @@ export default function InterviewModeScreen() {
       
       if (Platform.OS === 'web') {
         Alert.alert(
-          'Web Recording Limited',
-          'Full recording requires the native app. The UI demo shows how Interview Mode works.'
+          'Web Preview Mode',
+          'Full recording requires the native app. This demo shows how Interview Mode works.'
         );
       } else {
         Alert.alert('Recording Error', 'Failed to start recording');
@@ -209,23 +158,12 @@ export default function InterviewModeScreen() {
   }, [isRecording, stopAudioLevelSimulation]);
 
   const handleRetake = (seconds: number) => {
-    // In a full implementation, this would:
-    // 1. Stop current recording
-    // 2. Trim the last X seconds
-    // 3. Resume recording from that point
-    
     Alert.alert(
       'Smart Retake',
       `This will redo the last ${seconds} seconds. Continue recording from ${recordingDuration - seconds}s?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Redo', 
-          onPress: () => {
-            setRecordingDuration(prev => Math.max(0, prev - seconds));
-            // In native implementation, would trim video buffer here
-          }
-        },
+        { text: 'Redo', onPress: () => setRecordingDuration(prev => Math.max(0, prev - seconds)) },
       ]
     );
   };
@@ -282,115 +220,101 @@ export default function InterviewModeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" hidden={isRecording} />
       
+      {/* Full Screen Camera */}
       <CameraView
         ref={cameraRef}
-        style={StyleSheet.absoluteFill}
+        style={styles.fullScreenCamera}
         facing={cameraType}
         mode="video"
         onCameraReady={() => setIsCameraReady(true)}
       />
 
-      {/* Framing Guide Overlay */}
-      <FramingGuide
-        isVisible={showFramingGuide && presenceBoostActive && !isRecording}
-        facePosition={facePosition}
-        showGuideLines={true}
+      {/* Tap to toggle overlays */}
+      <TouchableOpacity 
+        style={styles.tapArea} 
+        activeOpacity={1}
+        onPress={() => setShowOverlays(!showOverlays)}
       />
 
-      {/* Top Bar */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+      {/* Minimal Top Bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.topButton}
           onPress={() => {
             if (isRecording) {
-              Alert.alert(
-                'Stop Recording?',
-                'Going back will stop your current recording.',
-                [
-                  { text: 'Keep Recording', style: 'cancel' },
-                  { text: 'Stop & Exit', style: 'destructive', onPress: () => {
-                    stopRecording();
-                    router.back();
-                  }},
-                ]
-              );
+              Alert.alert('Stop Recording?', 'Going back will stop your current recording.', [
+                { text: 'Keep Recording', style: 'cancel' },
+                { text: 'Stop & Exit', style: 'destructive', onPress: () => { stopRecording(); router.back(); }},
+              ]);
             } else {
               router.back();
             }
           }}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         
-        <View style={styles.modeBadge}>
-          <Ionicons name="briefcase" size={14} color="#4ECDC4" />
-          <Text style={styles.modeBadgeText}>Interview Mode</Text>
-        </View>
+        {/* Recording indicator */}
+        {isRecording && (
+          <View style={styles.recordingBadge}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingTime}>
+              {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+            </Text>
+          </View>
+        )}
         
-        <TouchableOpacity style={styles.iconButton} onPress={toggleCameraType}>
-          <Ionicons name="camera-reverse" size={24} color="#fff" />
+        <TouchableOpacity style={styles.topButton} onPress={toggleCameraType}>
+          <Ionicons name="camera-reverse" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Presence Boost Controls - Below Top Bar */}
-      {!isRecording && (
-        <View style={styles.presenceBoostContainer}>
-          <PresenceBoost
-            isActive={presenceBoostActive}
-            onToggle={() => setPresenceBoostActive(!presenceBoostActive)}
-            faceDetected={faceDetected}
-            faceCentered={faceCentered}
-            lightingLevel={lightingLevel}
-            showFramingHint={true}
+      {/* Timer - Compact, only shows when not recording or overlays visible */}
+      {showOverlays && !isRecording && (
+        <View style={styles.timerContainer}>
+          <InterviewTimer
+            duration={recordingDuration}
+            suggestedDuration={currentPrompt.suggestedDuration}
+            isRecording={isRecording}
           />
         </View>
       )}
 
-      {/* Lighting Indicator - Shows during recording */}
-      {isRecording && presenceBoostActive && (
-        <View style={styles.lightingContainer}>
-          <LightingIndicator level={lightingLevel} isVisible={true} />
+      {/* Teleprompter - Collapsible */}
+      {showOverlays && (
+        <View style={[styles.teleprompterContainer, isRecording && styles.teleprompterRecording]}>
+          <Teleprompter
+            currentPrompt={currentPrompt}
+            onPromptChange={setCurrentPrompt}
+            isMinimized={isTeleprompterMinimized}
+            onToggleMinimize={() => setIsTeleprompterMinimized(!isTeleprompterMinimized)}
+            isRecording={isRecording}
+          />
         </View>
       )}
 
-      {/* Timer - Center Top */}
-      <View style={styles.timerContainer}>
-        <InterviewTimer
-          duration={recordingDuration}
-          suggestedDuration={currentPrompt.suggestedDuration}
-          isRecording={isRecording}
-        />
-      </View>
-
-      {/* Teleprompter - Upper Middle */}
-      <View style={styles.teleprompterContainer}>
-        <Teleprompter
-          currentPrompt={currentPrompt}
-          onPromptChange={setCurrentPrompt}
-          isMinimized={isTeleprompterMinimized}
-          onToggleMinimize={() => setIsTeleprompterMinimized(!isTeleprompterMinimized)}
-          isRecording={isRecording}
-        />
-      </View>
-
-      {/* Energy Meter - Above Controls */}
-      <View style={styles.energyMeterContainer}>
-        <EnergyMeter audioLevel={audioLevel} isRecording={isRecording} />
-      </View>
+      {/* Energy Meter - Only during recording */}
+      {isRecording && (
+        <View style={styles.energyMeterContainer}>
+          <EnergyMeter audioLevel={audioLevel} isRecording={isRecording} />
+        </View>
+      )}
 
       {/* Bottom Controls */}
-      <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 16 }]}>
-        {/* Retake Control */}
-        <View style={styles.retakeContainer}>
-          <RetakeControl
-            isRecording={isRecording}
-            recordingDuration={recordingDuration}
-            onRetake={handleRetake}
-            onFullRestart={handleFullRestart}
-          />
-        </View>
+      <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 12 }]}>
+        {/* Retake Control - Only during recording */}
+        {isRecording && recordingDuration > 5 && (
+          <View style={styles.retakeContainer}>
+            <RetakeControl
+              isRecording={isRecording}
+              recordingDuration={recordingDuration}
+              onRetake={handleRetake}
+              onFullRestart={handleFullRestart}
+            />
+          </View>
+        )}
 
         {/* Main Record Button */}
         <TouchableOpacity
@@ -402,19 +326,14 @@ export default function InterviewModeScreen() {
             <View style={styles.stopIcon} />
           ) : (
             <View style={styles.recordIcon}>
-              <Ionicons name="videocam" size={28} color="#fff" />
+              <Ionicons name="videocam" size={26} color="#fff" />
             </View>
           )}
         </TouchableOpacity>
 
-        {/* Tips */}
-        {!isRecording && (
-          <View style={styles.tipsContainer}>
-            <TouchableOpacity style={styles.tipButton}>
-              <Ionicons name="bulb-outline" size={18} color="#FFB347" />
-              <Text style={styles.tipText}>Tips</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Hint text */}
+        {!isRecording && showOverlays && (
+          <Text style={styles.hintText}>Tap anywhere to hide/show prompts</Text>
         )}
       </View>
 
@@ -433,6 +352,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  fullScreenCamera: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  tapArea: {
+    position: 'absolute',
+    top: 80,
+    left: 0,
+    right: 0,
+    bottom: 180,
+    zIndex: 1,
   },
   permissionContainer: {
     flex: 1,
@@ -476,76 +412,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 10,
   },
-  backButton: {
-    width: 44,
-    height: 44,
+  topButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
   },
-  modeBadge: {
+  recordingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,59,48,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     gap: 6,
   },
-  modeBadgeText: {
-    color: '#4ECDC4',
-    fontSize: 13,
-    fontWeight: '600',
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
   },
-  iconButton: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 22,
-  },
-  presenceBoostContainer: {
-    position: 'absolute',
-    top: 100,
-    left: 0,
-    right: 0,
-    zIndex: 6,
-  },
-  lightingContainer: {
-    position: 'absolute',
-    top: 100,
-    left: 0,
-    right: 0,
-    zIndex: 6,
+  recordingTime: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   timerContainer: {
     position: 'absolute',
-    top: 210,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    top: 90,
+    alignSelf: 'center',
     zIndex: 5,
   },
   teleprompterContainer: {
     position: 'absolute',
-    top: 330,
+    top: 200,
     left: 0,
     right: 0,
     zIndex: 5,
   },
+  teleprompterRecording: {
+    top: 100,
+  },
   energyMeterContainer: {
     position: 'absolute',
-    bottom: 200,
+    bottom: 180,
     left: 0,
     right: 0,
     zIndex: 5,
@@ -556,62 +477,51 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 16,
+    zIndex: 10,
   },
   retakeContainer: {
-    marginBottom: 20,
-    minHeight: 44,
+    marginBottom: 16,
   },
   recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: '#fff',
   },
   recordingButton: {
-    backgroundColor: 'rgba(255,59,48,0.3)',
+    backgroundColor: 'rgba(255,59,48,0.2)',
     borderColor: '#FF3B30',
   },
   recordIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#FF3B30',
     justifyContent: 'center',
     alignItems: 'center',
   },
   stopIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 4,
     backgroundColor: '#fff',
   },
-  tipsContainer: {
-    marginTop: 20,
-  },
-  tipButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,179,71,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 6,
-  },
-  tipText: {
-    color: '#FFB347',
-    fontSize: 13,
-    fontWeight: '500',
+  hintText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginTop: 12,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 20,
   },
   loadingText: {
     color: '#888',
