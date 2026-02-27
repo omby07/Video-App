@@ -553,4 +553,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  interviewModeButton: {
+    position: 'absolute',
+    top: 180,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78,205,196,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(78,205,196,0.4)',
+  },
+  interviewModeText: {
+    color: '#4ECDC4',
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
 });
