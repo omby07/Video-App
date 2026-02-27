@@ -244,6 +244,18 @@ export default function CameraScreen() {
           <Ionicons name="sparkles-outline" size={24} color="white" />
           <Text style={styles.filterButtonText}>Touch Up</Text>
         </TouchableOpacity>
+
+        {/* Audio Toggle Button */}
+        <TouchableOpacity
+          style={styles.audioButton}
+          onPress={() => setAudioEnabled(!audioEnabled)}
+        >
+          <Ionicons 
+            name={audioEnabled ? "mic" : "mic-off"} 
+            size={24} 
+            color={audioEnabled ? "white" : "#FF3B30"} 
+          />
+        </TouchableOpacity>
       </CameraView>
     </View>
   );
