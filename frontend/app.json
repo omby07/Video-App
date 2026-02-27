@@ -1,23 +1,25 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Video Beautify",
+    "slug": "video-beautify",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
-    "userInterfaceStyle": "automatic",
+    "scheme": "videobeautify",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.videobeautify.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Record videos with custom backgrounds",
+        "NSCameraUsageDescription": "Record videos with custom backgrounds and beauty filters",
         "NSMicrophoneUsageDescription": "Record audio with your videos",
         "NSPhotoLibraryUsageDescription": "Save and access your video recordings",
-        "NSPhotoLibraryAddUsageDescription": "Save your recorded videos"
+        "NSPhotoLibraryAddUsageDescription": "Save your recorded videos to Photos"
       }
     },
     "android": {
+      "package": "com.videobeautify.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000"
