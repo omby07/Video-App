@@ -60,7 +60,7 @@ export default function InterviewModeScreen() {
   const [faceDetected, setFaceDetected] = useState(true); // Simulated
   const [faceCentered, setFaceCentered] = useState(false); // Simulated
   const [lightingLevel, setLightingLevel] = useState(65); // Simulated (0-100)
-  const [facePosition, setFacePosition] = useState<{x: number; y: number; width: number; height: number} | null>(null);
+  const [facePosition, setFacePosition] = useState<any>(null);
   const lightingRef = useRef<any>(null);
   
   // Store
