@@ -292,6 +292,13 @@ export default function InterviewModeScreen() {
         onCameraReady={() => setIsCameraReady(true)}
       />
 
+      {/* Framing Guide Overlay */}
+      <FramingGuide
+        isVisible={showFramingGuide && presenceBoostActive && !isRecording}
+        facePosition={facePosition}
+        showGuideLines={true}
+      />
+
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
@@ -326,6 +333,27 @@ export default function InterviewModeScreen() {
           <Ionicons name="camera-reverse" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Presence Boost Controls - Below Top Bar */}
+      {!isRecording && (
+        <View style={styles.presenceBoostContainer}>
+          <PresenceBoost
+            isActive={presenceBoostActive}
+            onToggle={() => setPresenceBoostActive(!presenceBoostActive)}
+            faceDetected={faceDetected}
+            faceCentered={faceCentered}
+            lightingLevel={lightingLevel}
+            showFramingHint={true}
+          />
+        </View>
+      )}
+
+      {/* Lighting Indicator - Shows during recording */}
+      {isRecording && presenceBoostActive && (
+        <View style={styles.lightingContainer}>
+          <LightingIndicator level={lightingLevel} isVisible={true} />
+        </View>
+      )}
 
       {/* Timer - Center Top */}
       <View style={styles.timerContainer}>
