@@ -57,14 +57,6 @@
           "microphonePermissionText": "$(PRODUCT_NAME) needs access to your Microphone to record audio",
           "recordAudioAndroid": true
         }
-      ],
-      [
-        "react-native-vision-camera",
-        {
-          "cameraPermissionText": "$(PRODUCT_NAME) needs camera access for real-time background effects",
-          "enableMicrophonePermission": true,
-          "microphonePermissionText": "$(PRODUCT_NAME) needs microphone access for video recording"
-        }
       ]
     ],
     "experiments": {
