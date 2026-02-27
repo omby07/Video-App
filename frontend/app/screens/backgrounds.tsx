@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,11 +16,24 @@ import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
 import { api } from '../../src/utils/api';
 import { BACKGROUND_COLORS, PREDEFINED_BACKGROUNDS } from '../../src/constants';
+import Slider from '@react-native-community/slider';
+
+// Check if dev build is available
+const isDevBuild = (() => {
+  if (Platform.OS === 'web') return false;
+  try {
+    require('react-native-vision-camera');
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 export default function BackgroundsScreen() {
   const router = useRouter();
   const { selectedBackground, setSelectedBackground, backgrounds, setBackgrounds, addBackground } = useStore();
   const [loading, setLoading] = useState(false);
+  const [blurIntensity, setBlurIntensity] = useState(50);
 
   useEffect(() => {
     loadBackgrounds();
@@ -37,9 +51,16 @@ export default function BackgroundsScreen() {
     }
   };
 
-  const selectBackground = (type: string, value: string) => {
-    setSelectedBackground({ type, value });
+  const selectBackground = (type: string, value: string, extra?: any) => {
+    setSelectedBackground({ type, value, ...extra });
     Alert.alert('Background Selected', 'Your background has been applied', [
+      { text: 'OK', onPress: () => router.back() }
+    ]);
+  };
+
+  const selectBlurBackground = () => {
+    setSelectedBackground({ type: 'blur', value: 'blur', blurIntensity });
+    Alert.alert('Blur Background Selected', `Blur intensity: ${blurIntensity}%`, [
       { text: 'OK', onPress: () => router.back() }
     ]);
   };
@@ -62,7 +83,7 @@ export default function BackgroundsScreen() {
           is_predefined: false,
         });
         addBackground(newBackground);
-        selectBackground('custom', newBackground.id);
+        selectBackground('image', newBackground.id, { imageUri: base64Image });
       } catch (error) {
         Alert.alert('Error', 'Failed to upload background');
       } finally {
@@ -96,7 +117,7 @@ export default function BackgroundsScreen() {
         is_predefined: true,
       });
       addBackground(newBackground);
-      selectBackground('predefined', newBackground.id);
+      selectBackground('image', newBackground.id, { imageUri: base64Image });
     } catch (error) {
       Alert.alert('Error', 'Failed to load background');
     } finally {
@@ -116,6 +137,14 @@ export default function BackgroundsScreen() {
       </View>
 
       <ScrollView style={styles.content}>
+        {/* Dev Build Status */}
+        {isDevBuild && (
+          <View style={styles.devBuildBanner}>
+            <Ionicons name="checkmark-circle" size={20} color="#7ED321" />
+            <Text style={styles.devBuildText}>Dev Build - ML Features Enabled</Text>
+          </View>
+        )}
+
         {/* None Option */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>None</Text>
@@ -137,19 +166,55 @@ export default function BackgroundsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Blur Option - DISABLED */}
+        {/* Blur Option */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Effects (Coming Soon)</Text>
-          <View style={[styles.colorItem, styles.disabledItem]}>
-            <View style={[styles.colorBox, { backgroundColor: '#333' }]}>
-              <Ionicons name="color-filter-outline" size={32} color="#666" />
+          <Text style={styles.sectionTitle}>Blur Background</Text>
+          {isDevBuild ? (
+            <View>
+              <TouchableOpacity
+                style={[
+                  styles.colorItem,
+                  selectedBackground?.type === 'blur' && styles.selectedItem,
+                ]}
+                onPress={selectBlurBackground}
+              >
+                <View style={[styles.colorBox, { backgroundColor: '#333' }]}>
+                  <Ionicons name="color-filter" size={32} color="#4A90E2" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.colorName}>Blur Background</Text>
+                  <Text style={styles.subText}>ML-powered person segmentation</Text>
+                </View>
+                {selectedBackground?.type === 'blur' && <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />}
+              </TouchableOpacity>
+              
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderLabel}>Blur Intensity: {blurIntensity}%</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={10}
+                  maximumValue={100}
+                  step={5}
+                  value={blurIntensity}
+                  onValueChange={setBlurIntensity}
+                  minimumTrackTintColor="#4A90E2"
+                  maximumTrackTintColor="#333"
+                  thumbTintColor="#4A90E2"
+                />
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.colorName}>Blur Background</Text>
-              <Text style={styles.disabledText}>Requires ML person segmentation</Text>
+          ) : (
+            <View style={[styles.colorItem, styles.disabledItem]}>
+              <View style={[styles.colorBox, { backgroundColor: '#333' }]}>
+                <Ionicons name="color-filter-outline" size={32} color="#666" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.colorName}>Blur Background</Text>
+                <Text style={styles.disabledText}>Requires Development Build</Text>
+              </View>
+              <Ionicons name="lock-closed" size={24} color="#666" />
             </View>
-            <Ionicons name="lock-closed" size={24} color="#666" />
-          </View>
+          )}
         </View>
 
         {/* Colors */}
@@ -175,51 +240,84 @@ export default function BackgroundsScreen() {
           </View>
         </View>
 
-        {/* Predefined Backgrounds - DISABLED */}
+        {/* Predefined Backgrounds */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Predefined Backgrounds (Coming Soon)</Text>
-          </View>
-          <Text style={styles.disabledSectionText}>
-            Background replacement requires ML-based person segmentation to separate you from the background. This feature will be available in a future update with proper implementation.
-          </Text>
-          <View style={styles.grid}>
-            {PREDEFINED_BACKGROUNDS.slice(0, 3).map((bg) => (
-              <View key={bg.id} style={[styles.imageItem, styles.disabledImageItem]}>
-                <Image source={{ uri: bg.url }} style={[styles.imageBox, { opacity: 0.3 }]} />
-                <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />
-                <Text style={[styles.imageName, { color: '#666' }]}>{bg.name}</Text>
+            <Text style={styles.sectionTitle}>Predefined Backgrounds</Text>
+            {!isDevBuild && (
+              <View style={styles.devBuildBadge}>
+                <Text style={styles.devBuildBadgeText}>Dev Build</Text>
               </View>
-            ))}
+            )}
           </View>
+          {isDevBuild ? (
+            <View style={styles.grid}>
+              {PREDEFINED_BACKGROUNDS.map((bg) => (
+                <TouchableOpacity
+                  key={bg.id}
+                  style={[
+                    styles.imageItem,
+                    selectedBackground?.value === bg.id && styles.selectedImageItem,
+                  ]}
+                  onPress={() => selectPredefinedBackground(bg)}
+                >
+                  <Image source={{ uri: bg.url }} style={styles.imageBox} />
+                  <Text style={styles.imageName}>{bg.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <>
+              <Text style={styles.disabledSectionText}>
+                Background replacement requires ML-based person segmentation. Create a development build to enable this feature.
+              </Text>
+              <View style={styles.grid}>
+                {PREDEFINED_BACKGROUNDS.slice(0, 3).map((bg) => (
+                  <View key={bg.id} style={[styles.imageItem, styles.disabledImageItem]}>
+                    <Image source={{ uri: bg.url }} style={[styles.imageBox, { opacity: 0.3 }]} />
+                    <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />
+                    <Text style={[styles.imageName, { color: '#666' }]}>{bg.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
-        {/* Custom Backgrounds - DISABLED FOR NOW */}
+        {/* Custom Backgrounds */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Custom Backgrounds</Text>
-            <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Phase 2</Text>
-            </View>
           </View>
-          <Text style={styles.disabledSectionText}>
-            Custom backgrounds can be uploaded and saved, but require the same ML person segmentation as other background effects to actually apply them during recording.
-          </Text>
-          <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-            <Ionicons name="cloud-upload-outline" size={24} color="#4A90E2" />
-            <Text style={styles.uploadButtonText}>Upload & Save for Later</Text>
+          <TouchableOpacity 
+            style={[styles.uploadButton, !isDevBuild && styles.uploadButtonDisabled]} 
+            onPress={pickImage}
+            disabled={!isDevBuild}
+          >
+            <Ionicons name="cloud-upload-outline" size={24} color={isDevBuild ? "#4A90E2" : "#666"} />
+            <Text style={[styles.uploadButtonText, !isDevBuild && { color: '#666' }]}>
+              {isDevBuild ? 'Upload Custom Background' : 'Requires Dev Build'}
+            </Text>
           </TouchableOpacity>
           
           {backgrounds.filter(bg => !bg.is_predefined).length > 0 && (
             <View style={styles.grid}>
               {backgrounds
                 .filter(bg => !bg.is_predefined)
-                .slice(0, 3)
                 .map((bg) => (
-                  <View key={bg.id} style={[styles.imageItem, styles.disabledImageItem]}>
-                    <Image source={{ uri: bg.image_data }} style={[styles.imageBox, { opacity: 0.3 }]} />
-                    <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />
-                  </View>
+                  <TouchableOpacity
+                    key={bg.id}
+                    style={[
+                      styles.imageItem,
+                      selectedBackground?.value === bg.id && styles.selectedImageItem,
+                      !isDevBuild && styles.disabledImageItem,
+                    ]}
+                    onPress={() => isDevBuild && selectBackground('image', bg.id, { imageUri: bg.image_data })}
+                    disabled={!isDevBuild}
+                  >
+                    <Image source={{ uri: bg.image_data }} style={[styles.imageBox, !isDevBuild && { opacity: 0.3 }]} />
+                    {!isDevBuild && <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />}
+                  </TouchableOpacity>
                 ))}
             </View>
           )}
@@ -227,9 +325,17 @@ export default function BackgroundsScreen() {
 
         {/* Info */}
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle-outline" size={20} color="#4A90E2" />\n          <Text style={styles.infoText}>
-            <Text style={{ fontWeight: '700' }}>Currently Available:</Text> Color tints work as overlays.{'\n\n'}
-            <Text style={{ fontWeight: '700' }}>Coming Soon:</Text> Background blur and custom backgrounds require ML-based person segmentation to work properly (separating you from the background). This will be implemented in Phase 2 with proper ML integration or SDK.
+          <Ionicons name="information-circle-outline" size={20} color="#4A90E2" />
+          <Text style={styles.infoText}>
+            {isDevBuild ? (
+              <>
+                <Text style={{ fontWeight: '700' }}>ML Features Active:</Text> Background blur and replacement use real-time person segmentation.
+              </>
+            ) : (
+              <>
+                <Text style={{ fontWeight: '700' }}>Expo Go Mode:</Text> Color overlays available. For blur and custom backgrounds, create a development build with ML capabilities.
+              </>
+            )}
           </Text>
         </View>
       </ScrollView>
