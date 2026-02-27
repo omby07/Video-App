@@ -54,6 +54,15 @@ export default function InterviewModeScreen() {
   const [currentPrompt, setCurrentPrompt] = useState<InterviewPrompt>(DEFAULT_PROMPTS[0]);
   const [isTeleprompterMinimized, setIsTeleprompterMinimized] = useState(false);
   
+  // Presence Boost state (Phase 2 features)
+  const [presenceBoostActive, setPresenceBoostActive] = useState(true);
+  const [showFramingGuide, setShowFramingGuide] = useState(true);
+  const [faceDetected, setFaceDetected] = useState(true); // Simulated
+  const [faceCentered, setFaceCentered] = useState(false); // Simulated
+  const [lightingLevel, setLightingLevel] = useState(65); // Simulated (0-100)
+  const [facePosition, setFacePosition] = useState<{x: number; y: number; width: number; height: number} | null>(null);
+  const lightingRef = useRef<any>(null);
+  
   // Store
   const { cameraType, setCameraType, userSettings } = useStore();
 
