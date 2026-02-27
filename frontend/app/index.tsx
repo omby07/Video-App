@@ -1,16 +1,29 @@
-import { Text, View, StyleSheet, Image } from "react-native";
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { useStore } from './store/useStore';
+import { api } from './utils/api';
+import CameraScreen from './screens/camera';
 
 export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  const { setUserSettings } = useStore();
+
+  useEffect(() => {
+    // Load user settings on app start
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const settings = await api.getSettings();
+      setUserSettings(settings);
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+      <CameraScreen />
     </View>
   );
 }
@@ -18,13 +31,6 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+    backgroundColor: '#000',
   },
 });
