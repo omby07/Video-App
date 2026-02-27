@@ -68,6 +68,7 @@ export default function VisionCameraTestScreen() {
         backgroundType={backgroundType}
         backgroundColor={backgroundColor}
         blurIntensity={blurIntensity}
+        filterSettings={filterSettings}
         isRecording={isRecording}
         showFPS={showFPS}
         onCameraReady={() => {
