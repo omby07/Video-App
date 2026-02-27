@@ -11,9 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import VisionCameraView from '../../src/components/VisionCameraView';
 import { BACKGROUND_COLORS } from '../../src/constants';
+import { useStore } from '../../src/store/useStore';
 
 export default function VisionCameraTestScreen() {
   const router = useRouter();
+  const { filterSettings } = useStore();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [backgroundType, setBackgroundType] = useState<'none' | 'blur' | 'color' | 'image'>('none');
   const [backgroundColor, setBackgroundColor] = useState('#4A90E2');
