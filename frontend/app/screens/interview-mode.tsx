@@ -19,6 +19,9 @@ import Teleprompter from '../../src/components/Teleprompter';
 import EnergyMeter from '../../src/components/EnergyMeter';
 import InterviewTimer from '../../src/components/InterviewTimer';
 import RetakeControl from '../../src/components/RetakeControl';
+import PresenceBoost from '../../src/components/PresenceBoost';
+import FramingGuide from '../../src/components/FramingGuide';
+import LightingIndicator from '../../src/components/LightingIndicator';
 
 // Types & Store
 import { InterviewPrompt, DEFAULT_PROMPTS } from '../../src/types';
