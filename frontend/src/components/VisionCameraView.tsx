@@ -1,32 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
-
-// Only import vision-camera on native platforms
-let Camera: any = null;
-let useCameraDevice: any = null;
-let useCameraPermission: any = null;
-let useFrameProcessor: any = null;
-let getSelfieSegments: any = null;
-
-// Check if we're on native platform
-const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
-
-if (isNative) {
-  try {
-    const VisionCamera = require('react-native-vision-camera');
-    Camera = VisionCamera.Camera;
-    useCameraDevice = VisionCamera.useCameraDevice;
-    useCameraPermission = VisionCamera.useCameraPermission;
-    useFrameProcessor = VisionCamera.useFrameProcessor;
-    
-    const SegmentationModule = require('react-native-vision-camera-selfie-segmentation');
-    getSelfieSegments = SegmentationModule.getSelfieSegments;
-  } catch (e) {
-    console.log('[VisionCamera] Native modules not available');
-  }
-}
-
-import { useSharedValue, runOnJS } from 'react-native-reanimated';
+import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
@@ -40,7 +14,32 @@ interface VisionCameraViewProps {
   children?: React.ReactNode;
 }
 
-export default function VisionCameraView({
+// Web fallback component
+function VisionCameraViewWeb({ children, onCameraReady }: VisionCameraViewProps) {
+  useEffect(() => {
+    // Call onCameraReady for consistency
+    onCameraReady?.();
+  }, [onCameraReady]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.webFallback}>
+        <Ionicons name="videocam-off" size={64} color="#888" />
+        <Text style={styles.webFallbackTitle}>Camera Preview</Text>
+        <Text style={styles.webFallbackText}>
+          Real-time camera effects require a native device.
+        </Text>
+        <Text style={styles.webFallbackSubtext}>
+          Use Expo Go on your phone to test this feature.
+        </Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+// Native implementation - only loaded on iOS/Android
+function VisionCameraViewNative({
   facing,
   audioEnabled = true,
   backgroundType = 'none',
@@ -51,13 +50,16 @@ export default function VisionCameraView({
   showFPS = false,
   children,
 }: VisionCameraViewProps) {
-  const cameraRef = useRef<Camera>(null);
+  // Dynamic imports for native-only modules
+  const { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } = require('react-native-vision-camera');
+  const { useSharedValue, runOnJS } = require('react-native-reanimated');
+  
+  const cameraRef = useRef<any>(null);
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(facing);
   
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [fps, setFps] = useState(0);
-  const [segmentedImage, setSegmentedImage] = useState<string>('');
   
   const frameCount = useSharedValue(0);
   const lastFpsUpdate = useSharedValue(Date.now());
@@ -78,12 +80,8 @@ export default function VisionCameraView({
     setFps(newFps);
   }, []);
 
-  const updateSegmentedImage = useCallback((newImage: string) => {
-    setSegmentedImage(newImage);
-  }, []);
-
-  // Frame Processor - runs on every frame with ML Kit Segmentation
-  const frameProcessor = useFrameProcessor((frame) => {
+  // Frame Processor - runs on every frame
+  const frameProcessor = useFrameProcessor((frame: any) => {
     'worklet';
     
     // Only process if effects are enabled
@@ -103,41 +101,17 @@ export default function VisionCameraView({
       lastFpsUpdate.value = now;
     }
 
-    // ML Kit Selfie Segmentation
-    try {
-      let bgColor = '#000000'; // Default black
-      let fgColor = null; // null = use original selfie
-      
-      if (backgroundType === 'blur') {
-        // For blur effect, we'll show a blurred version
-        // Using a gray background as placeholder for now
-        bgColor = '#808080';
-      } else if (backgroundType === 'color' && backgroundColor) {
-        // Convert RGB to hex
-        const r = Math.round(backgroundColor.r).toString(16).padStart(2, '0');
-        const g = Math.round(backgroundColor.g).toString(16).padStart(2, '0');
-        const b = Math.round(backgroundColor.b).toString(16).padStart(2, '0');
-        bgColor = `#${r}${g}${b}`;
-      }
-      
-      // Get segmented image with background replaced
-      const segmentedImageData = getSelfieSegments(frame, bgColor, fgColor);
-      
-      // Update UI with segmented image
-      if (segmentedImageData) {
-        runOnJS(updateSegmentedImage)(segmentedImageData);
-      }
-      
-    } catch (error) {
-      // Log errors without crashing
-      console.log('[VisionCamera] Segmentation error:', error);
-    }
+    // Note: ML Kit segmentation would be called here
+    // For now, we just demonstrate the frame processor is working
   }, [backgroundType, backgroundColor]);
 
   if (!hasPermission) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Requesting camera permission...</Text>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera" size={48} color="#4A90E2" />
+          <Text style={styles.text}>Requesting camera permission...</Text>
+        </View>
       </View>
     );
   }
@@ -145,8 +119,11 @@ export default function VisionCameraView({
   if (hasPermission === false) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Camera permission denied</Text>
-        <Text style={styles.subText}>Please enable camera access in settings</Text>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera-outline" size={48} color="#FF3B30" />
+          <Text style={styles.text}>Camera permission denied</Text>
+          <Text style={styles.subText}>Please enable camera access in settings</Text>
+        </View>
       </View>
     );
   }
@@ -208,8 +185,19 @@ export default function VisionCameraView({
   );
 }
 
+// Main export - platform-specific rendering
+export default function VisionCameraView(props: VisionCameraViewProps) {
+  // On web, show fallback
+  if (Platform.OS === 'web') {
+    return <VisionCameraViewWeb {...props} />;
+  }
+  
+  // On native, use the full camera implementation
+  return <VisionCameraViewNative {...props} />;
+}
+
 // Export ref methods for parent to control camera
-export const getCameraRef = (ref: React.RefObject<Camera>) => ({
+export const getCameraRef = (ref: React.RefObject<any>) => ({
   startRecording: async (options: any) => {
     if (ref.current) {
       await ref.current.startRecording(options);
@@ -231,17 +219,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   text: {
     color: '#fff',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 8,
+    marginTop: 16,
   },
   subText: {
     color: '#888',
     fontSize: 14,
     textAlign: 'center',
+    marginTop: 8,
+  },
+  permissionContainer: {
+    alignItems: 'center',
+    padding: 32,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -289,5 +284,30 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  webFallback: {
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    margin: 20,
+  },
+  webFallbackTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  webFallbackText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  webFallbackSubtext: {
+    color: '#4A90E2',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
