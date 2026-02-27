@@ -153,21 +153,19 @@ export default function CameraScreen() {
         mode="video"
       >
         {/* Visual Effect Overlays - Preview Only */}
-        {selectedBackground && selectedBackground.type === 'blur' && (
-          <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark" />
-        )}
+        {/* Note: Only color overlays work properly. Blur and custom backgrounds require ML person segmentation */}
         {selectedBackground && selectedBackground.type === 'color' && (
           <View style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: BACKGROUND_COLORS.find(c => c.id === selectedBackground.value)?.color, opacity: 0.3 }
+            { backgroundColor: BACKGROUND_COLORS.find(c => c.id === selectedBackground.value)?.color, opacity: 0.2 }
           ]} />
         )}
         
-        {/* Effects Preview Notice */}
-        {(selectedBackground || isRecording) && (
+        {/* Effects Preview Notice - Only shown when effects are selected */}
+        {selectedBackground && selectedBackground.type === 'color' && (
           <View style={styles.effectsNotice}>
             <Ionicons name="eye-outline" size={14} color="#FFD700" />
-            <Text style={styles.effectsNoticeText}>Effects preview • Applied after recording</Text>
+            <Text style={styles.effectsNoticeText}>Color tint preview • Full effects applied after recording</Text>
           </View>
         )}
         
