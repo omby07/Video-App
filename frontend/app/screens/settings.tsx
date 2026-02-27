@@ -205,6 +205,19 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Developer Tools */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Developer Tools</Text>
+          <TouchableOpacity
+            style={styles.devToolButton}
+            onPress={() => router.push('/screens/segmentation-test')}
+          >
+            <Ionicons name="flask" size={24} color="#4A90E2" />
+            <Text style={styles.devToolText}>ML Segmentation Test</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
+
         {/* Premium Features Info */}
         {!userSettings?.is_premium && (
           <View style={styles.section}>
