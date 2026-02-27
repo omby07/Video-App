@@ -63,8 +63,7 @@
           "enableMicrophonePermission": true,
           "microphonePermissionText": "$(PRODUCT_NAME) needs microphone access for video recording"
         }
-      ],
-      "react-native-worklets-core"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
