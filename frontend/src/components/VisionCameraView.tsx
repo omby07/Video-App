@@ -3,6 +3,13 @@ import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 
 // Types
+interface FilterSettings {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  smoothing: number;
+}
+
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
   audioEnabled?: boolean;
@@ -10,6 +17,7 @@ interface VisionCameraViewProps {
   backgroundColor?: string;
   backgroundImage?: string;
   blurIntensity?: number;
+  filterSettings?: FilterSettings;
   isRecording?: boolean;
   onCameraReady?: () => void;
   onRecordingStarted?: () => void;
