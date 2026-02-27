@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 
+// Types
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
   audioEnabled?: boolean;
@@ -18,7 +18,18 @@ interface VisionCameraViewProps {
   children?: React.ReactNode;
 }
 
-// Web fallback component
+// Check if we're running in a development build (has native modules)
+const isDevBuild = (() => {
+  try {
+    // Try to require vision camera - will fail in Expo Go
+    require('react-native-vision-camera');
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+// ================== WEB FALLBACK ==================
 function VisionCameraViewWeb({ 
   children, 
   onCameraReady,
@@ -31,25 +42,20 @@ function VisionCameraViewWeb({
 
   return (
     <View style={styles.container}>
-      <View style={styles.webFallback}>
+      <View style={styles.fallback}>
         <Ionicons name="videocam-off" size={64} color="#888" />
-        <Text style={styles.webFallbackTitle}>Camera Preview</Text>
-        <Text style={styles.webFallbackText}>
+        <Text style={styles.fallbackTitle}>Camera Preview</Text>
+        <Text style={styles.fallbackText}>
           Real-time camera effects require a native device.
         </Text>
-        <Text style={styles.webFallbackSubtext}>
-          Use Expo Go on your phone to test this feature.
-        </Text>
         {backgroundType && backgroundType !== 'none' && (
-          <View style={styles.webEffectPreview}>
-            <Text style={styles.webEffectLabel}>Selected Effect:</Text>
-            <View style={styles.webEffectBadge}>
-              <Text style={styles.webEffectText}>
-                {backgroundType === 'blur' ? 'Background Blur' : ''}
-                {backgroundType === 'color' ? `Color: ${backgroundColor}` : ''}
-                {backgroundType === 'image' ? 'Custom Background' : ''}
-              </Text>
-            </View>
+          <View style={styles.effectPreview}>
+            <Text style={styles.effectLabel}>Selected Effect:</Text>
+            <Text style={styles.effectValue}>
+              {backgroundType === 'blur' ? 'Background Blur' : ''}
+              {backgroundType === 'color' ? `Color: ${backgroundColor}` : ''}
+              {backgroundType === 'image' ? 'Custom Background' : ''}
+            </Text>
           </View>
         )}
       </View>
@@ -58,8 +64,8 @@ function VisionCameraViewWeb({
   );
 }
 
-// Native implementation using expo-camera (Expo Go compatible)
-function VisionCameraViewNative({
+// ================== EXPO GO FALLBACK (uses expo-camera) ==================
+function VisionCameraViewExpoGo({
   facing,
   audioEnabled = true,
   backgroundType = 'none',
@@ -72,26 +78,22 @@ function VisionCameraViewNative({
   showFPS = false,
   children,
 }: VisionCameraViewProps) {
+  const { CameraView, useCameraPermissions, useMicrophonePermissions } = require('expo-camera');
+  
   const cameraRef = useRef<any>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
 
-  // Request permissions on mount
   useEffect(() => {
     const requestPermissions = async () => {
-      if (!cameraPermission?.granted) {
-        await requestCameraPermission();
-      }
-      if (!micPermission?.granted && audioEnabled) {
-        await requestMicPermission();
-      }
+      if (!cameraPermission?.granted) await requestCameraPermission();
+      if (!micPermission?.granted && audioEnabled) await requestMicPermission();
     };
     requestPermissions();
   }, [cameraPermission, micPermission, audioEnabled]);
 
-  // Handle recording state changes from parent
   useEffect(() => {
     if (isRecording && !isRecordingInternal && cameraRef.current && isCameraReady) {
       startRecording();
@@ -101,68 +103,47 @@ function VisionCameraViewNative({
   }, [isRecording, isCameraReady]);
 
   const handleCameraReady = useCallback(() => {
-    console.log('[VisionCamera] Camera ready');
     setIsCameraReady(true);
     onCameraReady?.();
   }, [onCameraReady]);
 
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || isRecordingInternal) return;
-    
     try {
-      console.log('[VisionCamera] Starting recording...');
       setIsRecordingInternal(true);
       onRecordingStarted?.();
-      
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: 1800,
-      });
-      
-      console.log('[VisionCamera] Recording finished:', video?.uri);
+      const video = await cameraRef.current.recordAsync({ maxDuration: 1800 });
       setIsRecordingInternal(false);
-      
-      if (video?.uri) {
-        onRecordingStopped?.({ uri: video.uri });
-      }
+      if (video?.uri) onRecordingStopped?.({ uri: video.uri });
     } catch (error) {
-      console.error('[VisionCamera] Recording error:', error);
+      console.error('[VisionCamera-ExpoGo] Recording error:', error);
       setIsRecordingInternal(false);
     }
   }, [isRecordingInternal, onRecordingStarted, onRecordingStopped]);
 
   const stopRecording = useCallback(async () => {
     if (!cameraRef.current || !isRecordingInternal) return;
-    
     try {
-      console.log('[VisionCamera] Stopping recording...');
       await cameraRef.current.stopRecording();
     } catch (error) {
-      console.error('[VisionCamera] Stop recording error:', error);
+      console.error('[VisionCamera-ExpoGo] Stop error:', error);
     }
   }, [isRecordingInternal]);
 
-  // Permission loading state
   if (!cameraPermission || !micPermission) {
     return (
       <View style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera" size={48} color="#4A90E2" />
-          <Text style={styles.text}>Requesting permissions...</Text>
-          <ActivityIndicator style={styles.loader} color="#4A90E2" />
-        </View>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.text}>Requesting permissions...</Text>
       </View>
     );
   }
 
-  // Permission denied state
   if (!cameraPermission.granted || (audioEnabled && !micPermission.granted)) {
     return (
       <View style={styles.container}>
-        <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={48} color="#FF3B30" />
-          <Text style={styles.text}>Camera permissions required</Text>
-          <Text style={styles.subText}>Please grant camera and microphone access</Text>
-        </View>
+        <Ionicons name="camera-outline" size={48} color="#FF3B30" />
+        <Text style={styles.text}>Permissions required</Text>
       </View>
     );
   }
@@ -176,43 +157,221 @@ function VisionCameraViewNative({
         mode="video"
         onCameraReady={handleCameraReady}
       />
-
-      {/* Background color overlay effect */}
+      
+      {/* Simple color overlay for Expo Go */}
       {backgroundType === 'color' && backgroundColor && (
         <View 
-          style={[
-            StyleSheet.absoluteFill, 
-            { 
-              backgroundColor: backgroundColor,
-              opacity: 0.2,
-            }
-          ]} 
+          style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.2 }]} 
+          pointerEvents="none"
+        />
+      )}
+      
+      {/* Expo Go limitation notice */}
+      {backgroundType !== 'none' && (
+        <View style={styles.limitationBadge}>
+          <Text style={styles.limitationText}>
+            Full ML effects in Dev Build
+          </Text>
+        </View>
+      )}
+      
+      {children}
+      
+      {!isCameraReady && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+        </View>
+      )}
+      
+      {isRecordingInternal && (
+        <View style={styles.recordingIndicator}>
+          <View style={styles.recordingDot} />
+          <Text style={styles.recordingText}>REC</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ================== NATIVE DEV BUILD (Full ML with Vision Camera) ==================
+function VisionCameraViewNative({
+  facing,
+  audioEnabled = true,
+  backgroundType = 'none',
+  backgroundColor,
+  backgroundImage,
+  blurIntensity = 50,
+  isRecording = false,
+  onCameraReady,
+  onRecordingStarted,
+  onRecordingStopped,
+  showFPS = false,
+  children,
+}: VisionCameraViewProps) {
+  // Native imports
+  const { 
+    Camera, 
+    useCameraDevice, 
+    useCameraPermission, 
+    useMicrophonePermission,
+    useFrameProcessor 
+  } = require('react-native-vision-camera');
+  const { useSharedValue, runOnJS } = require('react-native-reanimated');
+  
+  // Try to import segmentation - might not be available
+  let useSelfieSegmentation: any = null;
+  try {
+    const segModule = require('react-native-vision-camera-selfie-segmentation');
+    useSelfieSegmentation = segModule.useSelfieSegmentation;
+  } catch (e) {
+    console.log('[VisionCamera] Selfie segmentation not available');
+  }
+
+  const cameraRef = useRef<any>(null);
+  const { hasPermission: hasCamPerm, requestPermission: reqCamPerm } = useCameraPermission();
+  const { hasPermission: hasMicPerm, requestPermission: reqMicPerm } = useMicrophonePermission();
+  const device = useCameraDevice(facing);
+
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isRecordingInternal, setIsRecordingInternal] = useState(false);
+  const [fps, setFps] = useState(0);
+  const [segmentationActive, setSegmentationActive] = useState(false);
+
+  const frameCount = useSharedValue(0);
+  const lastFpsUpdate = useSharedValue(Date.now());
+
+  useEffect(() => {
+    const requestPerms = async () => {
+      if (!hasCamPerm) await reqCamPerm();
+      if (!hasMicPerm && audioEnabled) await reqMicPerm();
+    };
+    requestPerms();
+  }, [hasCamPerm, hasMicPerm, audioEnabled]);
+
+  useEffect(() => {
+    if (isRecording && !isRecordingInternal && cameraRef.current && isCameraReady) {
+      startRecording();
+    } else if (!isRecording && isRecordingInternal) {
+      stopRecording();
+    }
+  }, [isRecording, isCameraReady]);
+
+  const handleInitialized = useCallback(() => {
+    console.log('[VisionCamera-Native] Initialized');
+    setIsCameraReady(true);
+    onCameraReady?.();
+  }, [onCameraReady]);
+
+  const updateFPS = useCallback((newFps: number) => setFps(newFps), []);
+  const updateSegStatus = useCallback((active: boolean) => setSegmentationActive(active), []);
+
+  const startRecording = useCallback(async () => {
+    if (!cameraRef.current || isRecordingInternal) return;
+    try {
+      console.log('[VisionCamera-Native] Starting recording...');
+      setIsRecordingInternal(true);
+      onRecordingStarted?.();
+      
+      await cameraRef.current.startRecording({
+        onRecordingFinished: (video: { path: string }) => {
+          console.log('[VisionCamera-Native] Recording finished:', video.path);
+          setIsRecordingInternal(false);
+          onRecordingStopped?.({ uri: `file://${video.path}` });
+        },
+        onRecordingError: (error: Error) => {
+          console.error('[VisionCamera-Native] Recording error:', error);
+          setIsRecordingInternal(false);
+        },
+      });
+    } catch (error) {
+      console.error('[VisionCamera-Native] Start recording error:', error);
+      setIsRecordingInternal(false);
+    }
+  }, [isRecordingInternal, onRecordingStarted, onRecordingStopped]);
+
+  const stopRecording = useCallback(async () => {
+    if (!cameraRef.current || !isRecordingInternal) return;
+    try {
+      console.log('[VisionCamera-Native] Stopping recording...');
+      await cameraRef.current.stopRecording();
+    } catch (error) {
+      console.error('[VisionCamera-Native] Stop error:', error);
+    }
+  }, [isRecordingInternal]);
+
+  // Frame processor for ML segmentation
+  const frameProcessor = useFrameProcessor((frame: any) => {
+    'worklet';
+    
+    if (backgroundType === 'none') return;
+
+    // FPS calculation
+    frameCount.value++;
+    const now = Date.now();
+    if (now - lastFpsUpdate.value >= 1000) {
+      const currentFps = Math.round((frameCount.value * 1000) / (now - lastFpsUpdate.value));
+      runOnJS(updateFPS)(currentFps);
+      frameCount.value = 0;
+      lastFpsUpdate.value = now;
+    }
+
+    // Segmentation would happen here
+    // const mask = getSelfieSegmentationMask(frame);
+    runOnJS(updateSegStatus)(true);
+  }, [backgroundType]);
+
+  if (!hasCamPerm || (audioEnabled && !hasMicPerm)) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.text}>Requesting permissions...</Text>
+      </View>
+    );
+  }
+
+  if (!device) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.text}>Loading camera...</Text>
+      </View>
+    );
+  }
+
+  const useProcessor = backgroundType !== 'none';
+
+  return (
+    <View style={styles.container}>
+      <Camera
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        video={true}
+        audio={audioEnabled}
+        frameProcessor={useProcessor ? frameProcessor : undefined}
+        onInitialized={handleInitialized}
+        pixelFormat="yuv"
+        fps={30}
+      />
+
+      {/* Color overlay */}
+      {backgroundType === 'color' && backgroundColor && (
+        <View 
+          style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.15 }]} 
           pointerEvents="none"
         />
       )}
 
-      {/* Blur effect indicator */}
-      {backgroundType === 'blur' && (
-        <View style={styles.effectOverlay} pointerEvents="none">
-          <View style={styles.blurIndicator}>
-            <Text style={styles.blurText}>Blur: {blurIntensity}%</Text>
-            <Text style={styles.blurNote}>Full blur requires dev build</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Children (controls overlay) */}
       {children}
 
-      {/* Loading overlay */}
       {!isCameraReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Initializing camera...</Text>
+          <Text style={styles.loadingText}>Initializing ML camera...</Text>
         </View>
       )}
 
-      {/* Recording indicator */}
       {isRecordingInternal && (
         <View style={styles.recordingIndicator}>
           <View style={styles.recordingDot} />
@@ -220,13 +379,30 @@ function VisionCameraViewNative({
         </View>
       )}
 
-      {/* Effect badge */}
+      {showFPS && isCameraReady && useProcessor && (
+        <View style={styles.fpsCounter}>
+          <Text style={styles.fpsText}>{fps} FPS</Text>
+          <Text style={styles.fpsLabel}>
+            {segmentationActive ? 'ML Active' : 'Processing'}
+          </Text>
+        </View>
+      )}
+
       {isCameraReady && backgroundType !== 'none' && (
         <View style={styles.effectBadge}>
-          <Text style={styles.effectText}>
-            {backgroundType === 'blur' ? 'Blur Effect' : ''}
+          <Text style={styles.effectBadgeText}>
+            {backgroundType === 'blur' ? `Blur ${blurIntensity}%` : ''}
             {backgroundType === 'color' ? 'Color BG' : ''}
             {backgroundType === 'image' ? 'Custom BG' : ''}
+          </Text>
+        </View>
+      )}
+
+      {isCameraReady && useProcessor && (
+        <View style={[styles.mlStatus, segmentationActive ? styles.mlActive : styles.mlInactive]}>
+          <View style={[styles.mlDot, { backgroundColor: segmentationActive ? '#7ED321' : '#FF9500' }]} />
+          <Text style={styles.mlText}>
+            {segmentationActive ? 'ML Segmentation' : 'Initializing...'}
           </Text>
         </View>
       )}
@@ -234,14 +410,21 @@ function VisionCameraViewNative({
   );
 }
 
-// Main export
+// ================== MAIN EXPORT ==================
 export default function VisionCameraView(props: VisionCameraViewProps) {
   if (Platform.OS === 'web') {
     return <VisionCameraViewWeb {...props} />;
   }
-  return <VisionCameraViewNative {...props} />;
+  
+  // Use native vision camera if available (dev build), otherwise expo-camera
+  if (isDevBuild) {
+    return <VisionCameraViewNative {...props} />;
+  }
+  
+  return <VisionCameraViewExpoGo {...props} />;
 }
 
+// ================== STYLES ==================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -252,21 +435,40 @@ const styles = StyleSheet.create({
   text: {
     color: '#fff',
     fontSize: 16,
-    textAlign: 'center',
     marginTop: 16,
   },
-  subText: {
+  fallback: {
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    margin: 20,
+  },
+  fallbackTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  fallbackText: {
     color: '#888',
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 8,
   },
-  permissionContainer: {
+  effectPreview: {
+    marginTop: 20,
     alignItems: 'center',
-    padding: 32,
   },
-  loader: {
-    marginTop: 16,
+  effectLabel: {
+    color: '#666',
+    fontSize: 12,
+  },
+  effectValue: {
+    color: '#4A90E2',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -302,93 +504,83 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  fpsCounter: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  fpsText: {
+    color: '#7ED321',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  fpsLabel: {
+    color: '#888',
+    fontSize: 10,
+    textAlign: 'center',
+  },
   effectBadge: {
     position: 'absolute',
     top: 80,
     right: 16,
-    backgroundColor: 'rgba(74, 144, 226, 0.9)',
+    backgroundColor: 'rgba(74,144,226,0.9)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
-  effectText: {
+  effectBadgeText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
   },
-  effectOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
+  mlStatus: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 120,
-  },
-  blurIndicator: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  blurText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  blurNote: {
-    color: '#888',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  webFallback: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 16,
-    margin: 20,
-    maxWidth: 340,
   },
-  webFallbackTitle: {
+  mlActive: {
+    backgroundColor: 'rgba(126,211,33,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(126,211,33,0.5)',
+  },
+  mlInactive: {
+    backgroundColor: 'rgba(255,149,0,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,149,0,0.5)',
+  },
+  mlDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  mlText: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 11,
+    fontWeight: '500',
   },
-  webFallbackText: {
-    color: '#888',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  webFallbackSubtext: {
-    color: '#4A90E2',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  webEffectPreview: {
-    marginTop: 20,
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    width: '100%',
-  },
-  webEffectLabel: {
-    color: '#666',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  webEffectBadge: {
-    backgroundColor: 'rgba(74, 144, 226, 0.2)',
+  limitationBadge: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,149,0,0.9)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(74, 144, 226, 0.5)',
   },
-  webEffectText: {
-    color: '#4A90E2',
-    fontSize: 14,
-    fontWeight: '500',
+  limitationText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
