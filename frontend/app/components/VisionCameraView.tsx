@@ -55,7 +55,11 @@ export default function VisionCameraView({
     setFps(newFps);
   }, []);
 
-  // Frame Processor - runs on every frame
+  const updateSegmentedImage = useCallback((newImage: string) => {
+    setSegmentedImage(newImage);
+  }, []);
+
+  // Frame Processor - runs on every frame with ML Kit Segmentation
   const frameProcessor = useFrameProcessor((frame) => {
     'worklet';
     
@@ -76,14 +80,36 @@ export default function VisionCameraView({
       lastFpsUpdate.value = now;
     }
 
-    // TODO: ML Kit segmentation will be added here
-    // For now, just counting frames to verify frame processor works
-    
-    // Debug log every 30 frames
-    if (frameCount.value % 30 === 0) {
-      console.log(`[VisionCamera] Processing frame at ${currentFps} fps`);
+    // ML Kit Selfie Segmentation
+    try {
+      let bgColor = '#000000'; // Default black
+      let fgColor = null; // null = use original selfie
+      
+      if (backgroundType === 'blur') {
+        // For blur effect, we'll show a blurred version
+        // Using a gray background as placeholder for now
+        bgColor = '#808080';
+      } else if (backgroundType === 'color' && backgroundColor) {
+        // Convert RGB to hex
+        const r = Math.round(backgroundColor.r).toString(16).padStart(2, '0');
+        const g = Math.round(backgroundColor.g).toString(16).padStart(2, '0');
+        const b = Math.round(backgroundColor.b).toString(16).padStart(2, '0');
+        bgColor = `#${r}${g}${b}`;
+      }
+      
+      // Get segmented image with background replaced
+      const segmentedImageData = getSelfieSegments(frame, bgColor, fgColor);
+      
+      // Update UI with segmented image
+      if (segmentedImageData) {
+        runOnJS(updateSegmentedImage)(segmentedImageData);
+      }
+      
+    } catch (error) {
+      // Log errors without crashing
+      console.log('[VisionCamera] Segmentation error:', error);
     }
-  }, [backgroundType, backgroundColor, backgroundImage]);
+  }, [backgroundType, backgroundColor]);
 
   if (!hasPermission) {
     return (
