@@ -1,4 +1,5 @@
-import * as FileSystem from 'expo-file-system';
+// Note: This is a simplified video processor for Expo Go
+// Full processing requires native modules in a development build
 import { FilterSettings } from '../types';
 
 export interface ProcessingOptions {
@@ -45,41 +46,32 @@ export const formatProcessingTime = (seconds: number): string => {
   return `~${minutes}:${remainingSeconds.toString().padStart(2, '0')} minutes`;
 };
 
-// Process video with effects
-// Note: Full video compression requires a development build with native modules
-// In Expo Go, we simply copy the video file
+// Simplified process video - just returns the original URI
+// Full processing with effects requires native modules
 export const processVideo = async (options: ProcessingOptions): Promise<ProcessingResult> => {
   const startTime = Date.now();
   
   try {
-    console.log('[VideoProcessor] Starting video processing:', options);
+    console.log('[VideoProcessor] Starting video processing (simplified mode)');
     
     // Simulate progress for UX
     if (options.onProgress) {
-      options.onProgress(10);
-    }
-    
-    // In Expo Go, we can only copy the file
-    // Full compression/effects require a development build
-    await FileSystem.copyAsync({
-      from: options.videoUri,
-      to: options.outputPath
-    });
-    
-    if (options.onProgress) {
+      options.onProgress(25);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      options.onProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      options.onProgress(75);
+      await new Promise(resolve => setTimeout(resolve, 300));
       options.onProgress(100);
     }
     
     const processingTime = Math.floor((Date.now() - startTime) / 1000);
     
-    console.log('[VideoProcessor] Processing complete:', {
-      processingTime,
-      outputUri: options.outputPath
-    });
-    
+    // In simplified mode, we return the original video URI
+    // Effects are applied in real-time during preview only
     return {
       success: true,
-      outputUri: options.outputPath,
+      outputUri: options.videoUri,
       processingTime
     };
     
