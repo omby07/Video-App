@@ -190,8 +190,9 @@ export default function CameraScreen() {
         console.error('[Camera] No video URI returned');
         Alert.alert('Error', 'Recording failed - no video captured');
       }
-    } catch (error: any) {
-      console.error('[Camera] Recording error:', error);
+    } catch (error) {
+      const err = error as Error;
+      console.error('[Camera] Recording error:', err);
       
       // Clear timer on error
       if (timerRef.current) {
