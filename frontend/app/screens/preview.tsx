@@ -275,6 +275,15 @@ export default function PreviewScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity
+          style={styles.exportButton}
+          onPress={() => setShowExportOptions(true)}
+          disabled={isSaving || !videoUri}
+        >
+          <Ionicons name="share-outline" size={20} color="#4ECDC4" />
+          <Text style={styles.exportButtonText}>Export</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
           onPress={handleSaveToGallery}
           disabled={isSaving || !videoUri}
@@ -287,11 +296,20 @@ export default function PreviewScreen() {
           ) : (
             <>
               <Ionicons name="download-outline" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Save to Gallery</Text>
+              <Text style={styles.saveButtonText}>Save</Text>
             </>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Export Options Modal */}
+      <ExportOptions
+        visible={showExportOptions}
+        onClose={() => setShowExportOptions(false)}
+        videoUri={videoUri as string || ''}
+        videoTitle={title}
+        videoDuration={duration}
+      />
     </KeyboardAvoidingView>
   );
 }
