@@ -1,0 +1,358 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useStore } from '../store/useStore';
+import { useRouter } from 'expo-router';
+import { api } from '../utils/api';
+import { BACKGROUND_COLORS, PREDEFINED_BACKGROUNDS } from '../constants';
+
+export default function BackgroundsScreen() {
+  const router = useRouter();
+  const { selectedBackground, setSelectedBackground, backgrounds, setBackgrounds, addBackground } = useStore();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadBackgrounds();
+  }, []);
+
+  const loadBackgrounds = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getBackgrounds();
+      setBackgrounds(data);
+    } catch (error) {
+      console.error('Failed to load backgrounds:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectBackground = (type: string, value: string) => {
+    setSelectedBackground({ type, value });
+    Alert.alert('Background Selected', 'Your background has been applied', [
+      { text: 'OK', onPress: () => router.back() }
+    ]);
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0].base64) {
+      try {
+        setLoading(true);
+        const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        const newBackground = await api.createBackground({
+          name: 'Custom Background',
+          image_data: base64Image,
+          is_predefined: false,
+        });
+        addBackground(newBackground);
+        selectBackground('custom', newBackground.id);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload background');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const downloadAndConvertToBase64 = async (url: string): Promise<string> => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      throw new Error('Failed to download image');
+    }
+  };
+
+  const selectPredefinedBackground = async (bg: typeof PREDEFINED_BACKGROUNDS[0]) => {
+    try {
+      setLoading(true);
+      const base64Image = await downloadAndConvertToBase64(bg.url);
+      const newBackground = await api.createBackground({
+        name: bg.name,
+        image_data: base64Image,
+        is_predefined: true,
+      });
+      addBackground(newBackground);
+      selectBackground('predefined', newBackground.id);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to load background');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={28} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Backgrounds</Text>
+        <View style={{ width: 28 }} />
+      </View>
+
+      <ScrollView style={styles.content}>
+        {/* None Option */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>None</Text>
+          <TouchableOpacity
+            style={[
+              styles.colorItem,
+              !selectedBackground && styles.selectedItem,
+            ]}
+            onPress={() => {
+              setSelectedBackground(null);
+              router.back();
+            }}
+          >
+            <View style={[styles.colorBox, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#333' }]}>
+              <Ionicons name="close" size={32} color="#fff" />
+            </View>
+            <Text style={styles.colorName}>No Background</Text>
+            {!selectedBackground && <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Blur Option */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Effects</Text>
+          <TouchableOpacity
+            style={[
+              styles.colorItem,
+              selectedBackground?.type === 'blur' && styles.selectedItem,
+            ]}
+            onPress={() => selectBackground('blur', 'enabled')}
+          >
+            <View style={[styles.colorBox, { backgroundColor: '#333' }]}>
+              <Ionicons name="color-filter-outline" size={32} color="#fff" />
+            </View>
+            <Text style={styles.colorName}>Blur Background</Text>
+            {selectedBackground?.type === 'blur' && <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />}
+          </TouchableOpacity>
+        </View>
+
+        {/* Colors */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Solid Colors</Text>
+          <View style={styles.grid}>
+            {BACKGROUND_COLORS.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.colorItem,
+                  selectedBackground?.type === 'color' && selectedBackground?.value === item.id && styles.selectedItem,
+                ]}
+                onPress={() => selectBackground('color', item.id)}
+              >
+                <View style={[styles.colorBox, { backgroundColor: item.color }]} />
+                <Text style={styles.colorName}>{item.name}</Text>
+                {selectedBackground?.type === 'color' && selectedBackground?.value === item.id && (
+                  <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Predefined Backgrounds */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Predefined Backgrounds</Text>
+          <View style={styles.grid}>
+            {PREDEFINED_BACKGROUNDS.map((bg) => (
+              <TouchableOpacity
+                key={bg.id}
+                style={styles.imageItem}
+                onPress={() => selectPredefinedBackground(bg)}
+              >
+                <Image source={{ uri: bg.url }} style={styles.imageBox} />
+                <Text style={styles.imageName}>{bg.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Custom Backgrounds */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Custom Backgrounds</Text>
+            <TouchableOpacity style={styles.addButton} onPress={pickImage}>
+              <Ionicons name="add-circle" size={24} color="#4A90E2" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.grid}>
+            {backgrounds
+              .filter(bg => !bg.is_predefined)
+              .map((bg) => (
+                <TouchableOpacity
+                  key={bg.id}
+                  style={[
+                    styles.imageItem,
+                    selectedBackground?.type === 'custom' && selectedBackground?.value === bg.id && styles.selectedItem,
+                  ]}
+                  onPress={() => selectBackground('custom', bg.id)}
+                >
+                  <Image source={{ uri: bg.image_data }} style={styles.imageBox} />
+                  {selectedBackground?.type === 'custom' && selectedBackground?.value === bg.id && (
+                    <View style={styles.checkmark}>
+                      <Ionicons name="checkmark-circle" size={32} color="#4A90E2" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+          </View>
+        </View>
+
+        {/* Info */}
+        <View style={styles.infoContainer}>
+          <Ionicons name="information-circle-outline" size={20} color="#888" />
+          <Text style={styles.infoText}>
+            Note: Advanced background replacement features are being developed. Current version supports color overlays and blur effects.
+          </Text>
+        </View>
+      </ScrollView>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+  },
+  section: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  addButton: {
+    padding: 4,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  colorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    marginBottom: 8,
+  },
+  selectedItem: {
+    borderWidth: 2,
+    borderColor: '#4A90E2',
+  },
+  colorBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorName: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+  },
+  imageItem: {
+    width: '31%',
+    aspectRatio: 1,
+    marginBottom: 12,
+  },
+  imageBox: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  imageName: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  infoContainer: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    color: '#888',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
