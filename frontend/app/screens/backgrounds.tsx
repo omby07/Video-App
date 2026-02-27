@@ -372,6 +372,21 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  devBuildBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(126, 211, 33, 0.1)',
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(126, 211, 33, 0.3)',
+  },
+  devBuildText: {
+    color: '#7ED321',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   section: {
     padding: 20,
     borderBottomWidth: 1,
@@ -389,8 +404,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 16,
   },
-  addButton: {
-    padding: 4,
+  subText: {
+    color: '#7ED321',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sliderContainer: {
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  sliderLabel: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
   },
   grid: {
     flexDirection: 'row',
@@ -427,6 +459,11 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     marginBottom: 12,
   },
+  selectedImageItem: {
+    borderWidth: 2,
+    borderColor: '#4A90E2',
+    borderRadius: 10,
+  },
   imageBox: {
     width: '100%',
     height: '100%',
@@ -437,11 +474,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
-  },
-  checkmark: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
   },
   infoContainer: {
     flexDirection: 'row',
@@ -472,16 +504,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 16,
   },
-  comingSoonBadge: {
-    backgroundColor: 'rgba(255, 165, 0, 0.2)',
+  devBuildBadge: {
+    backgroundColor: 'rgba(126, 211, 33, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 165, 0, 0.5)',
+    borderColor: 'rgba(126, 211, 33, 0.5)',
   },
-  comingSoonText: {
-    color: '#FFA500',
+  devBuildBadgeText: {
+    color: '#7ED321',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -497,6 +529,9 @@ const styles = StyleSheet.create({
     borderColor: '#4A90E2',
     borderStyle: 'dashed',
     marginBottom: 16,
+  },
+  uploadButtonDisabled: {
+    borderColor: '#666',
   },
   uploadButtonText: {
     color: '#4A90E2',
