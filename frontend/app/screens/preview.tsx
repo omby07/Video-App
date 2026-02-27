@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStore } from '../../src/store/useStore';
 import * as MediaLibrary from 'expo-media-library';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import ExportOptions from '../../src/components/ExportOptions';
 
 export default function PreviewScreen() {
   const { videoUri, recordedDuration } = useLocalSearchParams();
