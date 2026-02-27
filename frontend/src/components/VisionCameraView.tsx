@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types
@@ -26,7 +26,7 @@ interface VisionCameraViewProps {
   children?: React.ReactNode;
 }
 
-// Check if we're running in a development build (has native modules)
+// Check if we're running in a development build
 const isDevBuild = (() => {
   if (Platform.OS === 'web') return false;
   try {
@@ -72,13 +72,12 @@ function VisionCameraViewWeb({
   );
 }
 
-// ================== EXPO GO FALLBACK (uses expo-camera) ==================
+// ================== EXPO GO FALLBACK ==================
 function VisionCameraViewExpoGo({
   facing,
   audioEnabled = true,
   backgroundType = 'none',
   backgroundColor,
-  blurIntensity = 50,
   isRecording = false,
   onCameraReady,
   onRecordingStarted,
@@ -165,7 +164,6 @@ function VisionCameraViewExpoGo({
         onCameraReady={handleCameraReady}
       />
       
-      {/* Simple color overlay for Expo Go */}
       {backgroundType === 'color' && backgroundColor && (
         <View 
           style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.2 }]} 
@@ -173,7 +171,6 @@ function VisionCameraViewExpoGo({
         />
       )}
       
-      {/* Expo Go limitation notice */}
       {backgroundType !== 'none' && (
         <View style={styles.limitationBadge}>
           <Text style={styles.limitationText}>
@@ -200,13 +197,12 @@ function VisionCameraViewExpoGo({
   );
 }
 
-// ================== NATIVE DEV BUILD with Skia Rendering ==================
+// ================== NATIVE DEV BUILD ==================
 function VisionCameraViewNative({
   facing,
   audioEnabled = true,
   backgroundType = 'none',
   backgroundColor,
-  backgroundImage,
   blurIntensity = 50,
   isRecording = false,
   onCameraReady,
@@ -215,17 +211,14 @@ function VisionCameraViewNative({
   showFPS = false,
   children,
 }: VisionCameraViewProps) {
-  // Native imports
   const { 
     Camera, 
     useCameraDevice, 
     useCameraPermission, 
     useMicrophonePermission,
-    useFrameProcessor,
-    useSkiaFrameProcessor 
+    useFrameProcessor 
   } = require('react-native-vision-camera');
   const { useSharedValue, runOnJS } = require('react-native-reanimated');
-  const Skia = require('@shopify/react-native-skia');
 
   const cameraRef = useRef<any>(null);
   const { hasPermission: hasCamPerm, requestPermission: reqCamPerm } = useCameraPermission();
@@ -235,22 +228,9 @@ function VisionCameraViewNative({
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
   const [fps, setFps] = useState(0);
-  const [segmentationActive, setSegmentationActive] = useState(false);
 
   const frameCount = useSharedValue(0);
   const lastFpsUpdate = useSharedValue(Date.now());
-
-  // Preload background image if provided
-  const backgroundImageSkia = useRef<any>(null);
-  useEffect(() => {
-    if (backgroundType === 'image' && backgroundImage && Skia.Skia) {
-      Skia.Skia.Data.fromURI(backgroundImage).then((data: any) => {
-        if (data) {
-          backgroundImageSkia.current = Skia.Skia.Image.MakeImageFromEncoded(data);
-        }
-      }).catch((e: any) => console.log('Failed to load background image:', e));
-    }
-  }, [backgroundType, backgroundImage]);
 
   useEffect(() => {
     const requestPerms = async () => {
@@ -275,7 +255,6 @@ function VisionCameraViewNative({
   }, [onCameraReady]);
 
   const updateFPS = useCallback((newFps: number) => setFps(newFps), []);
-  const updateSegStatus = useCallback((active: boolean) => setSegmentationActive(active), []);
 
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || isRecordingInternal) return;
@@ -311,80 +290,7 @@ function VisionCameraViewNative({
     }
   }, [isRecordingInternal]);
 
-  // Skia Frame Processor for ML segmentation + background rendering
-  const skiaFrameProcessor = useSkiaFrameProcessor ? useSkiaFrameProcessor((frame: any) => {
-    'worklet';
-    
-    // FPS calculation
-    frameCount.value++;
-    const now = Date.now();
-    if (now - lastFpsUpdate.value >= 1000) {
-      const currentFps = Math.round((frameCount.value * 1000) / (now - lastFpsUpdate.value));
-      runOnJS(updateFPS)(currentFps);
-      frameCount.value = 0;
-      lastFpsUpdate.value = now;
-    }
-
-    if (backgroundType === 'none') {
-      // No processing, just render frame
-      frame.render();
-      return;
-    }
-
-    // Get frame dimensions
-    const width = frame.width;
-    const height = frame.height;
-
-    // Try to get segmentation mask
-    let mask = null;
-    try {
-      // This would call the selfie segmentation
-      // const segmentation = getSelfieSegmentationMask(frame);
-      // mask = segmentation.mask;
-      runOnJS(updateSegStatus)(true);
-    } catch (e) {
-      runOnJS(updateSegStatus)(false);
-    }
-
-    // Render based on background type
-    if (backgroundType === 'blur') {
-      // Apply blur to background (simplified - full implementation would use mask)
-      const blurFilter = Skia.Skia.ImageFilter.MakeBlur(
-        blurIntensity / 10,
-        blurIntensity / 10,
-        Skia.TileMode.Clamp,
-        null
-      );
-      
-      const paint = Skia.Skia.Paint();
-      paint.setImageFilter(blurFilter);
-      
-      // Draw blurred background
-      frame.render(paint);
-      
-      // If we had a mask, we would draw the person on top without blur
-      // frame.render(); // Person layer
-    } else if (backgroundType === 'color' && backgroundColor) {
-      // Draw solid color background
-      const paint = Skia.Skia.Paint();
-      paint.setColor(Skia.Skia.Color(backgroundColor));
-      frame.drawRect({ x: 0, y: 0, width, height }, paint);
-      
-      // Draw person on top (would use mask in full implementation)
-      frame.render();
-    } else if (backgroundType === 'image' && backgroundImageSkia.current) {
-      // Draw background image
-      const paint = Skia.Skia.Paint();
-      frame.drawImage(backgroundImageSkia.current, 0, 0, paint);
-      
-      // Draw person on top (would use mask in full implementation)
-      frame.render();
-    } else {
-      frame.render();
-    }
-  }, [backgroundType, backgroundColor, blurIntensity]) : null;
-
-  // Fallback frame processor (without Skia)
+  // Simple frame processor for FPS counting
   const frameProcessor = useFrameProcessor((frame: any) => {
     'worklet';
     
@@ -398,8 +304,6 @@ function VisionCameraViewNative({
       frameCount.value = 0;
       lastFpsUpdate.value = now;
     }
-
-    runOnJS(updateSegStatus)(true);
   }, [backgroundType]);
 
   if (!hasCamPerm || (audioEnabled && !hasMicPerm)) {
@@ -421,7 +325,6 @@ function VisionCameraViewNative({
   }
 
   const useProcessor = backgroundType !== 'none';
-  const processor = skiaFrameProcessor || (useProcessor ? frameProcessor : undefined);
 
   return (
     <View style={styles.container}>
@@ -432,14 +335,12 @@ function VisionCameraViewNative({
         isActive={true}
         video={true}
         audio={audioEnabled}
-        frameProcessor={processor}
+        frameProcessor={useProcessor ? frameProcessor : undefined}
         onInitialized={handleInitialized}
-        pixelFormat="rgb"
-        fps={30}
+        pixelFormat="yuv"
       />
 
-      {/* Color overlay fallback when Skia processor not available */}
-      {!skiaFrameProcessor && backgroundType === 'color' && backgroundColor && (
+      {backgroundType === 'color' && backgroundColor && (
         <View 
           style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.15 }]} 
           pointerEvents="none"
@@ -451,7 +352,7 @@ function VisionCameraViewNative({
       {!isCameraReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Initializing ML camera...</Text>
+          <Text style={styles.loadingText}>Initializing camera...</Text>
         </View>
       )}
 
@@ -465,9 +366,6 @@ function VisionCameraViewNative({
       {showFPS && isCameraReady && useProcessor && (
         <View style={styles.fpsCounter}>
           <Text style={styles.fpsText}>{fps} FPS</Text>
-          <Text style={styles.fpsLabel}>
-            {segmentationActive ? 'ML Active' : 'Processing'}
-          </Text>
         </View>
       )}
 
@@ -477,15 +375,6 @@ function VisionCameraViewNative({
             {backgroundType === 'blur' ? `Blur ${blurIntensity}%` : ''}
             {backgroundType === 'color' ? 'Color BG' : ''}
             {backgroundType === 'image' ? 'Custom BG' : ''}
-          </Text>
-        </View>
-      )}
-
-      {isCameraReady && useProcessor && (
-        <View style={[styles.mlStatus, segmentationActive ? styles.mlActive : styles.mlInactive]}>
-          <View style={[styles.mlDot, { backgroundColor: segmentationActive ? '#7ED321' : '#FF9500' }]} />
-          <Text style={styles.mlText}>
-            {segmentationActive ? 'ML Segmentation' : 'Initializing...'}
           </Text>
         </View>
       )}
@@ -601,11 +490,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  fpsLabel: {
-    color: '#888',
-    fontSize: 10,
-    textAlign: 'center',
-  },
   effectBadge: {
     position: 'absolute',
     top: 80,
@@ -619,37 +503,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-  },
-  mlStatus: {
-    position: 'absolute',
-    bottom: 100,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  mlActive: {
-    backgroundColor: 'rgba(126,211,33,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(126,211,33,0.5)',
-  },
-  mlInactive: {
-    backgroundColor: 'rgba(255,149,0,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,149,0,0.5)',
-  },
-  mlDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  mlText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '500',
   },
   limitationBadge: {
     position: 'absolute',
