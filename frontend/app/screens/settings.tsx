@@ -168,12 +168,26 @@ export default function SettingsScreen() {
 
         {/* Recording Duration */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recording Limits</Text>
+          <Text style={styles.sectionTitle}>Recording & Processing</Text>
           <View style={styles.infoRow}>
             <Ionicons name="time-outline" size={24} color="#4A90E2" />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>Maximum Duration</Text>
               <Text style={styles.infoValue}>{maxMinutes} minutes per recording</Text>
+            </View>
+          </View>
+          
+          <View style={styles.processingInfo}>
+            <Ionicons name="information-circle-outline" size={20} color="#888" />
+            <View style={styles.processingInfoContent}>
+              <Text style={styles.processingInfoTitle}>Processing Times</Text>
+              <Text style={styles.processingInfoText}>
+                Videos need processing after recording:{'\n'}
+                • Lo-res: ~25-35% of video length{'\n'}
+                • HD: ~30-40% of video length{'\n'}
+                • Full HD: ~40-50% of video length{'\n\n'}
+                Example: 30-min Full HD = ~15-20 min processing
+              </Text>
             </View>
           </View>
         </View>
