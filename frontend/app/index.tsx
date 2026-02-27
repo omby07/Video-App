@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useStore } from './store/useStore';
-import { api } from './utils/api';
+import { useStore } from '../src/store/useStore';
+import { api } from '../src/utils/api';
 import CameraScreen from './screens/camera';
 
 export default function Index() {
