@@ -146,6 +146,19 @@ export default function CameraScreen() {
 
   const bgInfo = getBackgroundDisplayInfo();
 
+  // Fallback if MLCameraView isn't available
+  if (!MLCameraView) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.fallbackContainer}>
+          <Ionicons name="videocam" size={64} color="#4ECDC4" />
+          <Text style={styles.fallbackTitle}>Camera Loading...</Text>
+          <Text style={styles.fallbackText}>Please wait or restart the app</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* ML Camera View - Full Screen */}
