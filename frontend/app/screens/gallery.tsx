@@ -11,10 +11,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useStore } from '../store/useStore';
+import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
-import { api } from '../utils/api';
-import { VideoMetadata } from '../types';
+import { api } from '../../src/utils/api';
+import { VideoMetadata } from '../../src/types';
 
 const { width } = Dimensions.get('window');
 const itemWidth = (width - 48) / 3;

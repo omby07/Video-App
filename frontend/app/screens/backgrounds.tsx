@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useStore } from '../store/useStore';
+import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
-import { api } from '../utils/api';
-import { BACKGROUND_COLORS, PREDEFINED_BACKGROUNDS } from '../constants';
+import { api } from '../../src/utils/api';
+import { BACKGROUND_COLORS, PREDEFINED_BACKGROUNDS } from '../../src/constants';
 
 export default function BackgroundsScreen() {
   const router = useRouter();

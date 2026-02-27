@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useStore } from '../store/useStore';
+import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
 
 export default function FiltersScreen() {
