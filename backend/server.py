@@ -242,6 +242,64 @@ async def upgrade_to_premium():
     
     return {"message": "Upgraded to premium successfully", "max_duration": 7200}
 
+
+# Shareable Link endpoints (Phase 4)
+@api_router.post("/share")
+async def create_shareable_link(data: ShareableLinkCreate):
+    """Create a shareable link for a video"""
+    share_id = str(uuid.uuid4())[:8]
+    
+    link_data = {
+        "id": share_id,
+        "title": data.title,
+        "duration": data.duration,
+        "video_uri": data.videoUri,
+        "share_url": f"https://interview.video/v/{share_id}",
+        "views": 0,
+        "unique_views": 0,
+        "created_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow().replace(day=datetime.utcnow().day + 30),
+    }
+    
+    await db.shareable_links.insert_one(link_data)
+    
+    return {
+        "shareUrl": link_data["share_url"],
+        "shareId": share_id,
+        "expiresAt": link_data["expires_at"].isoformat(),
+    }
+
+@api_router.get("/share/{share_id}/stats")
+async def get_share_stats(share_id: str):
+    """Get view statistics for a shareable link"""
+    link = await db.shareable_links.find_one({"id": share_id})
+    
+    if not link:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    
+    return {
+        "views": link.get("views", 0),
+        "uniqueViews": link.get("unique_views", 0),
+        "lastViewed": link.get("last_viewed"),
+    }
+
+@api_router.post("/share/{share_id}/view")
+async def record_view(share_id: str):
+    """Record a view for a shareable link"""
+    result = await db.shareable_links.update_one(
+        {"id": share_id},
+        {
+            "$inc": {"views": 1},
+            "$set": {"last_viewed": datetime.utcnow()}
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    
+    return {"success": True}
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
