@@ -80,8 +80,46 @@ export default function InterviewModeScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (audioLevelRef.current) clearInterval(audioLevelRef.current);
+      if (lightingRef.current) clearInterval(lightingRef.current);
     };
   }, []);
+
+  // Simulate presence boost data (in native build, use ML face detection)
+  useEffect(() => {
+    if (presenceBoostActive && isCameraReady) {
+      // Simulate lighting level variations
+      lightingRef.current = setInterval(() => {
+        setLightingLevel(prev => {
+          const variation = (Math.random() - 0.5) * 10;
+          return Math.max(20, Math.min(90, prev + variation));
+        });
+      }, 2000);
+
+      // Simulate face detection with occasional state changes
+      const faceInterval = setInterval(() => {
+        // 90% of time face is detected when camera is ready
+        setFaceDetected(Math.random() > 0.1);
+        // 70% of time face is centered when detected
+        setFaceCentered(faceDetected && Math.random() > 0.3);
+        // Simulate face position
+        if (faceDetected) {
+          setFacePosition({
+            x: 0.4 + Math.random() * 0.2,
+            y: 0.25 + Math.random() * 0.15,
+            width: 0.3,
+            height: 0.35,
+          });
+        } else {
+          setFacePosition(null);
+        }
+      }, 3000);
+
+      return () => {
+        clearInterval(faceInterval);
+        if (lightingRef.current) clearInterval(lightingRef.current);
+      };
+    }
+  }, [presenceBoostActive, isCameraReady, faceDetected]);
 
   // Simulate audio levels (in native build, use expo-av or native audio metering)
   const startAudioLevelSimulation = useCallback(() => {
