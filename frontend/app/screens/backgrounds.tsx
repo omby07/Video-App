@@ -194,35 +194,35 @@ export default function BackgroundsScreen() {
           </View>
         </View>
 
-        {/* Custom Backgrounds */}
+        {/* Custom Backgrounds - DISABLED FOR NOW */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Custom Backgrounds</Text>
-            <TouchableOpacity style={styles.addButton} onPress={pickImage}>
-              <Ionicons name="add-circle" size={24} color="#4A90E2" />
-            </TouchableOpacity>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Phase 2</Text>
+            </View>
           </View>
-          <View style={styles.grid}>
-            {backgrounds
-              .filter(bg => !bg.is_predefined)
-              .map((bg) => (
-                <TouchableOpacity
-                  key={bg.id}
-                  style={[
-                    styles.imageItem,
-                    selectedBackground?.type === 'custom' && selectedBackground?.value === bg.id && styles.selectedItem,
-                  ]}
-                  onPress={() => selectBackground('custom', bg.id)}
-                >
-                  <Image source={{ uri: bg.image_data }} style={styles.imageBox} />
-                  {selectedBackground?.type === 'custom' && selectedBackground?.value === bg.id && (
-                    <View style={styles.checkmark}>
-                      <Ionicons name="checkmark-circle" size={32} color="#4A90E2" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-          </View>
+          <Text style={styles.disabledSectionText}>
+            Custom backgrounds can be uploaded and saved, but require the same ML person segmentation as other background effects to actually apply them during recording.
+          </Text>
+          <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+            <Ionicons name="cloud-upload-outline" size={24} color="#4A90E2" />
+            <Text style={styles.uploadButtonText}>Upload & Save for Later</Text>
+          </TouchableOpacity>
+          
+          {backgrounds.filter(bg => !bg.is_predefined).length > 0 && (
+            <View style={styles.grid}>
+              {backgrounds
+                .filter(bg => !bg.is_predefined)
+                .slice(0, 3)
+                .map((bg) => (
+                  <View key={bg.id} style={[styles.imageItem, styles.disabledImageItem]}>
+                    <Image source={{ uri: bg.image_data }} style={[styles.imageBox, { opacity: 0.3 }]} />
+                    <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />
+                  </View>
+                ))}
+            </View>
+          )}
         </View>
 
         {/* Info */}
