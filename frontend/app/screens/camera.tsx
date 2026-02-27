@@ -98,70 +98,119 @@ export default function CameraScreen() {
   }
 
   const startRecording = async () => {
-    if (cameraRef.current) {
-      // Show disclaimer for long videos
-      if (recordingDuration === 0 && userSettings) {
-        const maxMinutes = Math.floor(userSettings.max_duration / 60);
-        const estimatedProcessing = estimateProcessingTime(
-          userSettings.max_duration,
-          userSettings.default_quality
-        );
-        
-        if (userSettings.max_duration >= 600) { // 10+ minutes
-          Alert.alert(
-            'Recording Notice',
-            `Recording up to ${maxMinutes} minutes in ${userSettings.default_quality.toUpperCase()}.\n\n` +
-            `After recording, your video will need ${formatProcessingTime(estimatedProcessing)} to apply effects.\n\n` +
-            `💡 Tip: You'll see effects in preview, but processing happens after recording.`,
-            [
-              { text: 'Got it', onPress: () => proceedWithRecording() }
-            ]
-          );
-          return;
-        }
-      }
-      
-      proceedWithRecording();
+    console.log('[Camera] startRecording called, cameraRef:', !!cameraRef.current);
+    
+    if (!cameraRef.current) {
+      Alert.alert('Error', 'Camera not ready');
+      return;
     }
+    
+    // Show disclaimer for long videos
+    if (recordingDuration === 0 && userSettings) {
+      const maxMinutes = Math.floor(userSettings.max_duration / 60);
+      const estimatedProcessing = estimateProcessingTime(
+        userSettings.max_duration,
+        userSettings.default_quality
+      );
+      
+      if (userSettings.max_duration >= 600) { // 10+ minutes
+        Alert.alert(
+          'Recording Notice',
+          `Recording up to ${maxMinutes} minutes in ${userSettings.default_quality.toUpperCase()}.\n\n` +
+          `After recording, your video will need ${formatProcessingTime(estimatedProcessing)} to apply effects.\n\n` +
+          `💡 Tip: You'll see effects in preview, but processing happens after recording.`,
+          [
+            { text: 'Got it', onPress: () => proceedWithRecording() }
+          ]
+        );
+        return;
+      }
+    }
+    
+    proceedWithRecording();
   };
 
   const proceedWithRecording = async () => {
-    if (cameraRef.current) {
-      try {
-        setIsRecording(true);
-        setRecordingDuration(0);
-        
-        timerRef.current = setInterval(() => {
-          setRecordingDuration(prev => {
-            const newDuration = prev + 1;
-            const maxDuration = userSettings?.max_duration || 1800;
-            
-            if (newDuration >= maxDuration) {
-              stopRecording();
-            }
-            
-            return newDuration;
-          });
-        }, 1000);
-        
-        // Record with audio setting
-        const video = await cameraRef.current.recordAsync({
-          mute: !audioEnabled,  // Mute if audio is disabled
+    console.log('[Camera] proceedWithRecording called');
+    
+    if (!cameraRef.current) {
+      console.error('[Camera] cameraRef is null');
+      Alert.alert('Error', 'Camera not initialized');
+      return;
+    }
+
+    try {
+      // Update UI immediately
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      console.log('[Camera] Starting timer...');
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingDuration(prev => {
+          const newDuration = prev + 1;
+          const maxDuration = userSettings?.max_duration || 1800;
+          
+          if (newDuration >= maxDuration) {
+            stopRecording();
+          }
+          
+          return newDuration;
         });
-        
-        if (video && video.uri) {
-          router.push({
-            pathname: '/screens/preview',
-            params: { 
-              videoUri: video.uri,
-              recordedDuration: recordingDuration.toString()
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Recording error:', error);
-        Alert.alert('Error', 'Failed to start recording');
-        setIsRecording(false);
+      }, 1000);
+      
+      console.log('[Camera] Calling recordAsync with mute:', !audioEnabled);
+      
+      // Start recording - this returns a promise that resolves when recording stops
+      const video = await cameraRef.current.recordAsync({
+        maxDuration: userSettings?.max_duration || 1800,
+      });
+      
+      console.log('[Camera] Recording finished, video:', video);
+      
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      setIsRecording(false);
+      
+      if (video && video.uri) {
+        console.log('[Camera] Navigating to preview with uri:', video.uri);
+        router.push({
+          pathname: '/screens/preview',
+          params: { 
+            videoUri: video.uri,
+            recordedDuration: recordingDuration.toString()
+          },
+        });
+      } else {
+        console.error('[Camera] No video URI returned');
+        Alert.alert('Error', 'Recording failed - no video captured');
+      }
+    } catch (error: any) {
+      console.error('[Camera] Recording error:', error);
+      
+      // Clear timer on error
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      setIsRecording(false);
+      
+      // Provide helpful error message
+      if (error.message?.includes('permission')) {
+        Alert.alert('Permission Error', 'Camera or microphone permission was denied');
+      } else if (Platform.OS === 'web') {
+        Alert.alert(
+          'Web Recording Limitations', 
+          'Video recording has limited support on web browsers. Please use the Expo Go app on your phone for full recording functionality.'
+        );
+      } else {
+        Alert.alert('Recording Error', error.message || 'Failed to record video');
       }
     }
   };
