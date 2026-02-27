@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   ScrollView,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { InterviewPrompt, DEFAULT_PROMPTS } from '../types';
@@ -28,15 +32,36 @@ export default function Teleprompter({
 }: TeleprompterProps) {
   const [showPromptPicker, setShowPromptPicker] = useState(false);
   const [editingBullets, setEditingBullets] = useState(false);
-  const [customBullets, setCustomBullets] = useState(currentPrompt.bullets.join('\n'));
+  const [customBullets, setCustomBullets] = useState('');
+
+  // Sync customBullets when opening edit modal or when prompt changes
+  useEffect(() => {
+    setCustomBullets(currentPrompt.bullets.join('\n'));
+  }, [currentPrompt]);
+
+  const openEditModal = () => {
+    setCustomBullets(currentPrompt.bullets.join('\n'));
+    setEditingBullets(true);
+  };
 
   const handleSaveCustomBullets = () => {
-    const bullets = customBullets.split('\n').filter(b => b.trim());
+    const bullets = customBullets
+      .split('\n')
+      .map(b => b.trim())
+      .filter(b => b.length > 0);
+    
     onPromptChange({
       ...currentPrompt,
       bullets: bullets.length > 0 ? bullets : ['Add your bullet points...'],
     });
     setEditingBullets(false);
+    Keyboard.dismiss();
+  };
+
+  const handleCancelEdit = () => {
+    setCustomBullets(currentPrompt.bullets.join('\n'));
+    setEditingBullets(false);
+    Keyboard.dismiss();
   };
 
   if (isMinimized) {
@@ -66,9 +91,10 @@ export default function Teleprompter({
           {!isRecording && (
             <TouchableOpacity 
               style={styles.editButton}
-              onPress={() => setEditingBullets(true)}
+              onPress={openEditModal}
             >
               <Ionicons name="pencil" size={16} color="#4ECDC4" />
+              <Text style={styles.editButtonText}>Edit</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.minimizeButton} onPress={onToggleMinimize}>
@@ -121,7 +147,6 @@ export default function Teleprompter({
                   ]}
                   onPress={() => {
                     onPromptChange(prompt);
-                    setCustomBullets(prompt.bullets.join('\n'));
                     setShowPromptPicker(false);
                   }}
                 >
@@ -144,38 +169,75 @@ export default function Teleprompter({
         </View>
       </Modal>
 
-      {/* Edit Bullets Modal */}
+      {/* Edit Bullets Modal - IMPROVED */}
       <Modal
         visible={editingBullets}
         transparent
         animationType="slide"
-        onRequestClose={() => setEditingBullets(false)}
+        onRequestClose={handleCancelEdit}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Bullet Points</Text>
-              <TouchableOpacity onPress={() => setEditingBullets(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </TouchableOpacity>
+        <KeyboardAvoidingView 
+          style={styles.editModalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.editModalOverlay}>
+              <View style={styles.editModalContent}>
+                {/* Header */}
+                <View style={styles.editModalHeader}>
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.editModalTitle}>Edit Prompts</Text>
+                  <TouchableOpacity onPress={handleSaveCustomBullets} style={styles.saveHeaderButton}>
+                    <Text style={styles.saveHeaderButtonText}>Save</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Instructions */}
+                <View style={styles.instructionsBox}>
+                  <Ionicons name="bulb-outline" size={18} color="#FFB347" />
+                  <Text style={styles.instructionsText}>
+                    Write one talking point per line. Keep them short - just keywords to jog your memory.
+                  </Text>
+                </View>
+
+                {/* Current Prompt Label */}
+                <View style={styles.promptLabelContainer}>
+                  <Text style={styles.promptLabel}>Editing: {currentPrompt.title}</Text>
+                </View>
+
+                {/* Text Input */}
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.bulletInput}
+                    multiline
+                    value={customBullets}
+                    onChangeText={setCustomBullets}
+                    placeholder="Enter your talking points...&#10;&#10;Example:&#10;• 5 years experience in marketing&#10;• Led team of 8 people&#10;• Increased sales by 40%"
+                    placeholderTextColor="#555"
+                    autoFocus={true}
+                    textAlignVertical="top"
+                    selectionColor="#4ECDC4"
+                  />
+                </View>
+
+                {/* Character Count */}
+                <View style={styles.charCountContainer}>
+                  <Text style={styles.charCount}>
+                    {customBullets.split('\n').filter(l => l.trim()).length} bullet points
+                  </Text>
+                </View>
+
+                {/* Bottom Save Button */}
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveCustomBullets}>
+                  <Ionicons name="checkmark-circle" size={20} color="#000" />
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            
-            <Text style={styles.editHint}>One bullet point per line</Text>
-            
-            <TextInput
-              style={styles.bulletInput}
-              multiline
-              value={customBullets}
-              onChangeText={setCustomBullets}
-              placeholder="Enter your bullet points..."
-              placeholderTextColor="#666"
-            />
-            
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveCustomBullets}>
-              <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -226,8 +288,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButton: {
-    padding: 8,
-    marginRight: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78,205,196,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  editButtonText: {
+    color: '#4ECDC4',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   minimizeButton: {
     padding: 4,
@@ -329,26 +402,101 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
   },
-  editHint: {
+  // Edit Modal Styles - IMPROVED
+  editModalContainer: {
+    flex: 1,
+  },
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+  },
+  editModalContent: {
+    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  editModalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  cancelButtonText: {
     color: '#888',
+    fontSize: 16,
+  },
+  saveHeaderButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  saveHeaderButtonText: {
+    color: '#4ECDC4',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  instructionsBox: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,179,71,0.15)',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  instructionsText: {
+    flex: 1,
+    color: '#FFB347',
     fontSize: 13,
+    lineHeight: 18,
+  },
+  promptLabelContainer: {
+    marginBottom: 12,
+  },
+  promptLabel: {
+    color: '#4ECDC4',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inputWrapper: {
+    flex: 1,
+    backgroundColor: '#111',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#333',
     marginBottom: 12,
   },
   bulletInput: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
+    flex: 1,
     padding: 16,
     color: '#fff',
-    fontSize: 15,
-    minHeight: 150,
-    textAlignVertical: 'top',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  charCountContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  charCount: {
+    color: '#666',
+    fontSize: 12,
   },
   saveButton: {
+    flexDirection: 'row',
     backgroundColor: '#4ECDC4',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    gap: 8,
   },
   saveButtonText: {
     color: '#000',
