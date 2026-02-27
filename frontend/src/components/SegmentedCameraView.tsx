@@ -3,10 +3,12 @@
  * 
  * Uses react-native-vision-camera-selfie-segmentation to:
  * 1. Detect the person in each frame using ML
- * 2. Apply blur/color ONLY to the background
+ * 2. Apply background color/effects only to the background
  * 3. Keep the person sharp and clear
  * 
- * This is the same technology used by Zoom and Google Meet.
+ * Note: This plugin is experimental - background blur may not work perfectly
+ * in all conditions. The app will fall back gracefully to standard camera
+ * if segmentation fails.
  */
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
@@ -17,6 +19,7 @@ import {
   Platform, 
   Dimensions, 
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -58,7 +61,8 @@ let useCameraDevice: any = null;
 let useCameraPermission: any = null;
 let useMicrophonePermission: any = null;
 let useFrameProcessor: any = null;
-let getSelfieSegmentation: any = null;
+let runOnJS: any = null;
+let getSelfieSegments: any = null;
 let isNativeAvailable = false;
 
 if (Platform.OS !== 'web') {
@@ -71,9 +75,22 @@ if (Platform.OS !== 'web') {
     useMicrophonePermission = VisionCamera.useMicrophonePermission;
     useFrameProcessor = VisionCamera.useFrameProcessor;
     
-    // Selfie Segmentation
-    const SegmentationPlugin = require('react-native-vision-camera-selfie-segmentation');
-    getSelfieSegmentation = SegmentationPlugin.getSelfieSegmentation;
+    // Reanimated for runOnJS
+    try {
+      const Reanimated = require('react-native-reanimated');
+      runOnJS = Reanimated.runOnJS;
+    } catch (e) {
+      console.log('[SegmentedCamera] Reanimated not available');
+    }
+    
+    // Selfie Segmentation - Note: function is getSelfieSegments (with 's')
+    try {
+      const SegmentationPlugin = require('react-native-vision-camera-selfie-segmentation');
+      getSelfieSegments = SegmentationPlugin.getSelfieSegments;
+      console.log('[SegmentedCamera] Segmentation plugin loaded');
+    } catch (e) {
+      console.log('[SegmentedCamera] Segmentation plugin not available:', e);
+    }
     
     isNativeAvailable = true;
     console.log('[SegmentedCamera] Native modules loaded successfully');
@@ -130,13 +147,17 @@ function NativeSegmentedCamera({
   const cameraRef = useRef<any>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
-  const [processedFrame, setProcessedFrame] = useState<string | null>(null);
+  const [segmentedImage, setSegmentedImage] = useState<string | null>(null);
+  const [segmentationActive, setSegmentationActive] = useState(false);
   const recordingStartTime = useRef<number>(0);
 
   // Camera hooks
   const device = useCameraDevice?.(facing);
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission?.() || {};
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission?.() || {};
+
+  // Check if segmentation is supported
+  const canUseSegmentation = getSelfieSegments && runOnJS && backgroundEffect !== 'none';
 
   // Request permissions
   useEffect(() => {
@@ -152,33 +173,41 @@ function NativeSegmentedCamera({
     getPermissions();
   }, []);
 
+  // Update segmented image from frame processor
+  const updateSegmentedImage = useCallback((imageBase64: string) => {
+    if (imageBase64) {
+      setSegmentedImage(`data:image/jpeg;base64,${imageBase64}`);
+      if (!segmentationActive) {
+        setSegmentationActive(true);
+      }
+    }
+  }, [segmentationActive]);
+
   // Frame processor with ML segmentation
+  // Only created when segmentation is needed and supported
   const frameProcessor = useFrameProcessor?.((frame: any) => {
     'worklet';
     
-    if (backgroundEffect === 'none' || !getSelfieSegmentation) {
+    // Skip if no effect or plugin not available
+    if (!canUseSegmentation) {
       return;
     }
     
     try {
-      // Get the segmented image with background replaced/blurred
-      // The plugin handles:
-      // 1. Running ML model to detect person
-      // 2. Creating mask (person vs background)
-      // 3. Applying effect to background only
-      // 4. Returning composited image
+      // Get segmented image
+      // Parameters: frame, backgroundColor, foregroundColor (optional)
+      // If foregroundColor is null, original person pixels are preserved
+      const bgColor = backgroundColor || '#222222';
+      const result = getSelfieSegments(frame, bgColor);
       
-      const segmentedImage = getSelfieSegmentation(frame, backgroundColor);
-      
-      // Update the displayed frame (runs on JS thread)
-      if (segmentedImage) {
-        // The plugin returns a base64 image with effects applied
-        runOnJS(setProcessedFrame)(segmentedImage);
+      if (result && runOnJS) {
+        runOnJS(updateSegmentedImage)(result);
       }
     } catch (error) {
-      console.log('[SegmentedCamera] Segmentation error:', error);
+      // Silently handle errors to prevent crashes
+      console.log('[SegmentedCamera] Frame processing error');
     }
-  }, [backgroundEffect, backgroundColor]);
+  }, [canUseSegmentation, backgroundColor, updateSegmentedImage]);
 
   const handleCameraReady = useCallback(() => {
     console.log('[SegmentedCamera] Camera initialized');
@@ -272,8 +301,8 @@ function NativeSegmentedCamera({
         isActive={isActive}
         video={true}
         audio={enableAudio}
-        frameProcessor={backgroundEffect !== 'none' ? frameProcessor : undefined}
-        frameProcessorFps={5} // Lower FPS for segmentation processing
+        frameProcessor={canUseSegmentation ? frameProcessor : undefined}
+        frameProcessorFps={10}
         onInitialized={handleCameraReady}
         onError={(error: any) => {
           console.error('[SegmentedCamera] Camera error:', error);
@@ -281,10 +310,10 @@ function NativeSegmentedCamera({
         }}
       />
       
-      {/* Processed frame overlay (shows segmented result) */}
-      {processedFrame && backgroundEffect !== 'none' && (
+      {/* Segmented frame overlay - shows background replacement result */}
+      {segmentedImage && segmentationActive && backgroundEffect !== 'none' && (
         <Image 
-          source={{ uri: `data:image/jpeg;base64,${processedFrame}` }}
+          source={{ uri: segmentedImage }}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -317,10 +346,10 @@ function NativeSegmentedCamera({
       )}
       
       {/* ML Processing indicator */}
-      {backgroundEffect !== 'none' && isCameraReady && (
+      {canUseSegmentation && isCameraReady && (
         <View style={styles.mlIndicator}>
           <Ionicons name="scan" size={14} color="#4ECDC4" />
-          <Text style={styles.mlIndicatorText}>ML Active</Text>
+          <Text style={styles.mlIndicatorText}>ML {segmentationActive ? 'Active' : 'Starting'}</Text>
         </View>
       )}
       
@@ -336,26 +365,12 @@ function NativeSegmentedCamera({
       {!isCameraReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4ECDC4" />
-          <Text style={styles.loadingText}>Starting ML camera...</Text>
+          <Text style={styles.loadingText}>Starting camera...</Text>
         </View>
       )}
     </View>
   );
 }
-
-// runOnJS helper for worklets
-const runOnJS = (fn: Function) => (value: any) => {
-  'worklet';
-  // This is a simplified version - the actual implementation
-  // comes from react-native-reanimated
-  try {
-    const reanimated = require('react-native-reanimated');
-    return reanimated.runOnJS(fn)(value);
-  } catch (e) {
-    // Fallback
-    fn(value);
-  }
-};
 
 // Main export
 export default function SegmentedCameraView(props: SegmentedCameraViewProps) {
@@ -368,9 +383,9 @@ export default function SegmentedCameraView(props: SegmentedCameraViewProps) {
 export function useSegmentationFeatures() {
   return {
     isNativeAvailable,
-    supportsSegmentation: isNativeAvailable && !!getSelfieSegmentation,
-    supportsBackgroundBlur: isNativeAvailable && !!getSelfieSegmentation,
-    supportsBackgroundReplace: isNativeAvailable && !!getSelfieSegmentation,
+    supportsSegmentation: isNativeAvailable && !!getSelfieSegments,
+    supportsBackgroundBlur: isNativeAvailable && !!getSelfieSegments,
+    supportsBackgroundReplace: isNativeAvailable && !!getSelfieSegments,
   };
 }
 
