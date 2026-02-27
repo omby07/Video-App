@@ -104,7 +104,10 @@ export default function CameraScreen() {
           });
         }, 1000);
         
-        const video = await cameraRef.current.recordAsync();
+        // Record with audio setting
+        const video = await cameraRef.current.recordAsync({
+          mute: !audioEnabled,  // Mute if audio is disabled
+        });
         
         if (video && video.uri) {
           router.push({
