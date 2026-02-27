@@ -345,6 +345,15 @@ export default function CameraScreen() {
           <Text style={styles.filterButtonText}>Touch Up</Text>
         </TouchableOpacity>
 
+        {/* Interview Mode Button - NEW FEATURE */}
+        <TouchableOpacity
+          style={styles.interviewModeButton}
+          onPress={() => router.push('/screens/interview-mode')}
+        >
+          <Ionicons name="briefcase" size={22} color="#4ECDC4" />
+          <Text style={styles.interviewModeText}>Interview Mode</Text>
+        </TouchableOpacity>
+
         {/* Audio Toggle Button */}
         <TouchableOpacity
           style={styles.audioButton}
