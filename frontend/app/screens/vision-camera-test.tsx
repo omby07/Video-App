@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import VisionCameraView from '../components/VisionCameraView';
+import VisionCameraView from '../../src/components/VisionCameraView';
 
 export default function VisionCameraTestScreen() {
   const router = useRouter();

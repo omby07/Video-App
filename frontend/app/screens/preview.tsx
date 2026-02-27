@@ -18,7 +18,7 @@ import { useStore } from '../../src/store/useStore';
 import { api } from '../../src/utils/api';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import ProcessingScreen from '../components/ProcessingScreen';
+import ProcessingScreen from '../../src/components/ProcessingScreen';
 import {
   estimateProcessingTime,
   formatProcessingTime,
