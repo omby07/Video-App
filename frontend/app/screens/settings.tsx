@@ -377,6 +377,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
   },
+  devToolButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    gap: 12,
+  },
+  devToolText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   processingInfo: {
     flexDirection: 'row',
     backgroundColor: '#1a1a1a',
