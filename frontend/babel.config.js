@@ -7,7 +7,7 @@ module.exports = function (api) {
       ['react-native-worklets-core/plugin'],
       // Reanimated plugin must be last
       ['react-native-reanimated/plugin', {
-        globals: ['__scanCodes', '__scanFaces', '__scanBarcodes'],
+        globals: ['__scanCodes', '__scanFaces', '__scanBarcodes', '__getSelfieSegments'],
       }],
     ],
   };
