@@ -191,8 +191,7 @@ export default function CameraScreen() {
         Alert.alert('Error', 'Recording failed - no video captured');
       }
     } catch (error) {
-      const err = error as Error;
-      console.error('[Camera] Recording error:', err);
+      console.error('[Camera] Recording error:', error);
       
       // Clear timer on error
       if (timerRef.current) {
@@ -203,7 +202,8 @@ export default function CameraScreen() {
       setIsRecording(false);
       
       // Provide helpful error message
-      if (err.message?.includes('permission')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('permission')) {
         Alert.alert('Permission Error', 'Camera or microphone permission was denied');
       } else if (Platform.OS === 'web') {
         Alert.alert(
@@ -211,7 +211,7 @@ export default function CameraScreen() {
           'Video recording has limited support on web browsers. Please use the Expo Go app on your phone for full recording functionality.'
         );
       } else {
-        Alert.alert('Recording Error', err.message || 'Failed to record video');
+        Alert.alert('Recording Error', errorMessage);
       }
     }
   };
