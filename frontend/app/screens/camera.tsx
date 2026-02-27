@@ -57,6 +57,34 @@ export default function CameraScreen() {
 
   const startRecording = async () => {
     if (cameraRef.current) {
+      // Show disclaimer for long videos
+      if (recordingDuration === 0 && userSettings) {
+        const maxMinutes = Math.floor(userSettings.max_duration / 60);
+        const estimatedProcessing = estimateProcessingTime(
+          userSettings.max_duration,
+          userSettings.default_quality
+        );
+        
+        if (userSettings.max_duration >= 600) { // 10+ minutes
+          Alert.alert(
+            'Recording Notice',
+            `Recording up to ${maxMinutes} minutes in ${userSettings.default_quality.toUpperCase()}.\n\n` +
+            `After recording, your video will need ${formatProcessingTime(estimatedProcessing)} to apply effects.\n\n` +
+            `💡 Tip: You'll see effects in preview, but processing happens after recording.`,
+            [
+              { text: 'Got it', onPress: () => proceedWithRecording() }
+            ]
+          );
+          return;
+        }
+      }
+      
+      proceedWithRecording();
+    }
+  };
+
+  const proceedWithRecording = async () => {
+    if (cameraRef.current) {
       try {
         setIsRecording(true);
         setRecordingDuration(0);
@@ -79,7 +107,10 @@ export default function CameraScreen() {
         if (video && video.uri) {
           router.push({
             pathname: '/screens/preview',
-            params: { videoUri: video.uri },
+            params: { 
+              videoUri: video.uri,
+              recordedDuration: recordingDuration.toString()
+            },
           });
         }
       } catch (error) {
