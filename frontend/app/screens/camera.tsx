@@ -12,7 +12,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MLCameraView, { useMLCameraFeatures } from '../../src/components/MLCameraView';
+
+// Try to import MLCameraView, fall back to basic view if it fails
+let MLCameraView: any = null;
+let useMLCameraFeatures: any = () => ({ isNativeAvailable: false });
+
+try {
+  const cameraModule = require('../../src/components/MLCameraView');
+  MLCameraView = cameraModule.default;
+  useMLCameraFeatures = cameraModule.useMLCameraFeatures;
+} catch (e) {
+  console.log('[CameraScreen] MLCameraView not available:', e);
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
