@@ -3,10 +3,15 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Worklets core plugin for frame processors (must be before reanimated)
+      // Worklets core plugin for frame processors
       ['react-native-worklets-core/plugin'],
-      // Reanimated plugin must be last
-      'react-native-reanimated/plugin',
+      // Reanimated plugin with selfie segmentation global
+      [
+        'react-native-reanimated/plugin',
+        {
+          globals: ['__getSelfieSegmentation'],
+        },
+      ],
     ],
   };
 };
