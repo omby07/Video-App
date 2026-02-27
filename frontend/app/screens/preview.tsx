@@ -15,28 +15,17 @@ import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStore } from '../../src/store/useStore';
-import { api } from '../../src/utils/api';
+import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import ProcessingScreen from '../../src/components/ProcessingScreen';
-import {
-  estimateProcessingTime,
-  formatProcessingTime,
-  getProcessingDescription,
-  estimateFileSize,
-  prepareFilterSettings,
-} from '../../src/utils/videoProcessor';
 
-type ProcessingQuality = 'quick' | 'balanced' | 'best';
-
-export default function PreviewWithProcessingScreen() {
+export default function PreviewScreen() {
   const { videoUri, recordedDuration } = useLocalSearchParams();
   const router = useRouter();
   const videoRef = useRef<any>(null);
   const [title, setTitle] = useState(`Video ${new Date().toLocaleDateString()}`);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showProcessing, setShowProcessing] = useState(false);
-  const [selectedProcessingQuality, setSelectedProcessingQuality] = useState<ProcessingQuality>('balanced');
+  const [isSaving, setIsSaving] = useState(false);
   
   const {
     userSettings,
@@ -46,11 +35,6 @@ export default function PreviewWithProcessingScreen() {
   } = useStore();
 
   const duration = parseInt(recordedDuration as string) || 0;
-  const quality = userSettings?.default_quality || 'hd';
-  
-  const estimatedTime = estimateProcessingTime(duration, quality);
-  const quickTime = Math.ceil(estimatedTime * 0.5);
-  const bestTime = Math.ceil(estimatedTime * 1.3);
 
   const handlePlayPause = async () => {
     if (videoRef.current) {
@@ -73,66 +57,84 @@ export default function PreviewWithProcessingScreen() {
       });
       return `data:image/jpeg;base64,${base64}`;
     } catch (error) {
-      console.error('Thumbnail generation failed:', error);
+      console.error('[Preview] Thumbnail generation failed:', error);
       return null;
     }
   };
 
-  const handleProcessAndSave = () => {
-    if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a title for your video');
+  const handleSaveToGallery = async () => {
+    if (!videoUri) {
+      Alert.alert('Error', 'No video to save');
       return;
     }
 
-    setShowProcessing(true);
-  };
+    setIsSaving(true);
 
-  const handleProcessingComplete = async (processedUri: string) => {
     try {
-      // Read processed video as base64
-      const base64Video = await FileSystem.readAsStringAsync(processedUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Generate thumbnail
-      const thumbnail = await generateThumbnail(processedUri);
-
-      // Prepare video data
-      const videoData = {
-        title: title.trim(),
-        duration,
-        quality: userSettings?.default_quality || 'hd',
-        background_type: selectedBackground?.type,
-        background_value: selectedBackground?.value,
-        filters_applied: prepareFilterSettings(filterSettings),
-        video_data: `data:video/mp4;base64,${base64Video}`,
-        thumbnail,
-      };
-
-      // Save to backend
-      const savedVideo = await api.createVideo(videoData);
-      addVideo(savedVideo);
-
-      // Clean up temp files
-      try {
-        await FileSystem.deleteAsync(videoUri as string, { idempotent: true });
-        await FileSystem.deleteAsync(processedUri, { idempotent: true });
-      } catch (e) {
-        console.log('Cleanup warning:', e);
+      // Request media library permission
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to save videos to your gallery.',
+          [{ text: 'OK' }]
+        );
+        setIsSaving(false);
+        return;
       }
 
-      Alert.alert('Success', 'Video saved successfully!', [
-        { text: 'OK', onPress: () => router.replace('/') },
-      ]);
-    } catch (error) {
-      console.error('Save error:', error);
-      Alert.alert('Error', 'Failed to save video. Please try again.');
-      setShowProcessing(false);
-    }
-  };
+      console.log('[Preview] Saving video to gallery:', videoUri);
 
-  const handleProcessingCancel = () => {
-    setShowProcessing(false);
+      // Save to media library
+      const asset = await MediaLibrary.createAssetAsync(videoUri as string);
+      console.log('[Preview] Video saved to gallery:', asset.uri);
+
+      // Generate thumbnail for local storage
+      const thumbnail = await generateThumbnail(videoUri as string);
+
+      // Add to local state for gallery view
+      const videoData = {
+        id: asset.id,
+        title: title.trim() || `Video ${new Date().toLocaleDateString()}`,
+        uri: asset.uri,
+        duration,
+        createdAt: new Date().toISOString(),
+        thumbnail,
+        quality: userSettings?.default_quality || 'hd',
+        background_type: selectedBackground?.type,
+        filters_applied: filterSettings ? [filterSettings.level] : [],
+      };
+
+      addVideo(videoData);
+
+      setIsSaving(false);
+
+      Alert.alert(
+        'Video Saved!',
+        'Your video has been saved to your gallery.',
+        [
+          { 
+            text: 'View Gallery', 
+            onPress: () => router.replace('/screens/gallery')
+          },
+          { 
+            text: 'Record Another', 
+            onPress: () => router.replace('/')
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[Preview] Save error:', error);
+      setIsSaving(false);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert(
+        'Save Failed',
+        `Could not save video: ${errorMessage}`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleDiscard = () => {
@@ -144,71 +146,27 @@ export default function PreviewWithProcessingScreen() {
         {
           text: 'Discard',
           style: 'destructive',
-          onPress: () => router.replace('/'),
-        },
-      ]
-    );
-  };
-
-  const handleSaveRaw = async () => {
-    Alert.alert(
-      'Save Without Processing?',
-      'Video will be saved without effects applied. This is instant but effects won\'t be in the final video.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save Raw',
           onPress: async () => {
+            // Try to delete temp file
             try {
-              const base64Video = await FileSystem.readAsStringAsync(videoUri as string, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-              const thumbnail = await generateThumbnail(videoUri as string);
-
-              const videoData = {
-                title: title.trim() || `Video ${new Date().toLocaleDateString()}`,
-                duration,
-                quality: userSettings?.default_quality || 'hd',
-                filters_applied: ['raw_unprocessed'],
-                video_data: `data:video/mp4;base64,${base64Video}`,
-                thumbnail,
-              };
-
-              const savedVideo = await api.createVideo(videoData);
-              addVideo(savedVideo);
-
-              Alert.alert('Success', 'Raw video saved!', [
-                { text: 'OK', onPress: () => router.replace('/') },
-              ]);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to save video');
+              if (videoUri) {
+                await FileSystem.deleteAsync(videoUri as string, { idempotent: true });
+              }
+            } catch (e) {
+              console.log('[Preview] Cleanup warning:', e);
             }
+            router.replace('/');
           },
         },
       ]
     );
   };
 
-  if (showProcessing) {
-    return (
-      <ProcessingScreen
-        videoUri={videoUri as string}
-        options={{
-          quality: selectedProcessingQuality,
-          filters: filterSettings,
-          backgroundType: selectedBackground?.type,
-          backgroundValue: selectedBackground?.value,
-        }}
-        onComplete={handleProcessingComplete}
-        onCancel={handleProcessingCancel}
-        estimatedTime={
-          selectedProcessingQuality === 'quick' ? quickTime :
-          selectedProcessingQuality === 'best' ? bestTime :
-          estimatedTime
-        }
-      />
-    );
-  }
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <KeyboardAvoidingView
@@ -217,44 +175,74 @@ export default function PreviewWithProcessingScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleDiscard}>
-          <Ionicons name="close" size={28} color="#fff" />
+        <TouchableOpacity onPress={handleDiscard} disabled={isSaving}>
+          <Ionicons name="close" size={28} color={isSaving ? '#666' : '#fff'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Preview & Process</Text>
+        <Text style={styles.headerTitle}>Preview</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Video Player */}
         <View style={styles.videoContainer}>
-          {videoUri && (
+          {videoUri ? (
             <Video
               ref={videoRef}
               source={{ uri: videoUri as string }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={false}
+              isLooping
               onPlaybackStatusUpdate={(status: any) => {
                 if (status.isLoaded) {
                   setIsPlaying(status.isPlaying);
                 }
               }}
             />
+          ) : (
+            <View style={styles.noVideo}>
+              <Ionicons name="videocam-off" size={48} color="#666" />
+              <Text style={styles.noVideoText}>No video available</Text>
+            </View>
           )}
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={handlePlayPause}
-          >
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={48}
-              color="#fff"
-            />
-          </TouchableOpacity>
+          {videoUri && (
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={handlePlayPause}
+            >
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={48}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Video Info */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Ionicons name="time-outline" size={20} color="#888" />
+            <Text style={styles.infoLabel}>Duration:</Text>
+            <Text style={styles.infoValue}>{formatDuration(duration)}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="videocam-outline" size={20} color="#888" />
+            <Text style={styles.infoLabel}>Quality:</Text>
+            <Text style={styles.infoValue}>{(userSettings?.default_quality || 'HD').toUpperCase()}</Text>
+          </View>
+          {selectedBackground && selectedBackground.type !== 'none' && (
+            <View style={styles.infoRow}>
+              <Ionicons name="color-palette-outline" size={20} color="#888" />
+              <Text style={styles.infoLabel}>Background:</Text>
+              <Text style={styles.infoValue}>{selectedBackground.type}</Text>
+            </View>
+          )}
         </View>
 
         {/* Title Input */}
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Video Title</Text>
+          <Text style={styles.label}>Video Title (optional)</Text>
           <TextInput
             style={styles.input}
             value={title}
@@ -262,111 +250,15 @@ export default function PreviewWithProcessingScreen() {
             placeholder="Enter video title"
             placeholderTextColor="#666"
             maxLength={100}
+            editable={!isSaving}
           />
         </View>
 
-        {/* Processing Options */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Processing Options</Text>
-          <Text style={styles.sectionSubtitle}>Choose processing speed vs quality</Text>
-
-          <TouchableOpacity
-            style={[
-              styles.optionCard,
-              selectedProcessingQuality === 'quick' && styles.optionCardActive
-            ]}
-            onPress={() => setSelectedProcessingQuality('quick')}
-          >
-            <View style={styles.optionHeader}>
-              <View style={styles.optionTitleRow}>
-                <Ionicons name="flash" size={24} color={selectedProcessingQuality === 'quick' ? '#4A90E2' : '#888'} />
-                <Text style={[styles.optionTitle, selectedProcessingQuality === 'quick' && styles.optionTitleActive]}>
-                  Quick Process
-                </Text>
-              </View>
-              {selectedProcessingQuality === 'quick' && (
-                <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
-              )}
-            </View>
-            <Text style={styles.optionTime}>{formatProcessingTime(quickTime)}</Text>
-            <Text style={styles.optionDescription}>{getProcessingDescription('quick')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.optionCard,
-              selectedProcessingQuality === 'balanced' && styles.optionCardActive
-            ]}
-            onPress={() => setSelectedProcessingQuality('balanced')}
-          >
-            <View style={styles.optionHeader}>
-              <View style={styles.optionTitleRow}>
-                <Ionicons name="checkmark-done" size={24} color={selectedProcessingQuality === 'balanced' ? '#4A90E2' : '#888'} />
-                <Text style={[styles.optionTitle, selectedProcessingQuality === 'balanced' && styles.optionTitleActive]}>
-                  Balanced ✓ Recommended
-                </Text>
-              </View>
-              {selectedProcessingQuality === 'balanced' && (
-                <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
-              )}
-            </View>
-            <Text style={styles.optionTime}>{formatProcessingTime(estimatedTime)}</Text>
-            <Text style={styles.optionDescription}>{getProcessingDescription('balanced')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.optionCard,
-              selectedProcessingQuality === 'best' && styles.optionCardActive
-            ]}
-            onPress={() => setSelectedProcessingQuality('best')}
-          >
-            <View style={styles.optionHeader}>
-              <View style={styles.optionTitleRow}>
-                <Ionicons name="star" size={24} color={selectedProcessingQuality === 'best' ? '#4A90E2' : '#888'} />
-                <Text style={[styles.optionTitle, selectedProcessingQuality === 'best' && styles.optionTitleActive]}>
-                  Best Quality
-                </Text>
-              </View>
-              {selectedProcessingQuality === 'best' && (
-                <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
-              )}
-            </View>
-            <Text style={styles.optionTime}>{formatProcessingTime(bestTime)}</Text>
-            <Text style={styles.optionDescription}>{getProcessingDescription('best')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Applied Settings Info */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.infoTitle}>Effects to be Applied:</Text>
-          <View style={styles.infoRow}>
-            <Ionicons name="videocam-outline" size={16} color="#888" />
-            <Text style={styles.infoText}>
-              Quality: {quality.toUpperCase()}
-            </Text>
-          </View>
-          {selectedBackground && (
-            <View style={styles.infoRow}>
-              <Ionicons name="color-palette-outline" size={16} color="#888" />
-              <Text style={styles.infoText}>
-                Background: {selectedBackground.type}
-              </Text>
-            </View>
-          )}
-          <View style={styles.infoRow}>
-            <Ionicons name="sparkles-outline" size={16} color="#888" />
-            <Text style={styles.infoText}>
-              Filter Level: {filterSettings.level}
-            </Text>
-          </View>
-        </View>
-
-        {/* Notice */}
+        {/* Info Notice */}
         <View style={styles.noticeContainer}>
           <Ionicons name="information-circle" size={20} color="#4A90E2" />
           <Text style={styles.noticeText}>
-            You can use the app while processing in background. We'll notify you when complete!
+            Video will be saved directly to your device's gallery.
           </Text>
         </View>
       </ScrollView>
@@ -374,17 +266,30 @@ export default function PreviewWithProcessingScreen() {
       {/* Action Buttons */}
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={handleSaveRaw}
+          style={styles.discardButton}
+          onPress={handleDiscard}
+          disabled={isSaving}
         >
-          <Text style={styles.secondaryButtonText}>Save Raw (Instant)</Text>
+          <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+          <Text style={styles.discardButtonText}>Discard</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={handleProcessAndSave}
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSaveToGallery}
+          disabled={isSaving || !videoUri}
         >
-          <Ionicons name="sparkles" size={20} color="#fff" />
-          <Text style={styles.primaryButtonText}>Process & Save</Text>
+          {isSaving ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.saveButtonText}>Saving...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="download-outline" size={20} color="#fff" />
+              <Text style={styles.saveButtonText}>Save to Gallery</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
