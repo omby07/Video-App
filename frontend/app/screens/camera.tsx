@@ -465,4 +465,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
   },
+  fallbackContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  fallbackTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  fallbackText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+  },
 });
