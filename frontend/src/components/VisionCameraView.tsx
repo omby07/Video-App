@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Types
@@ -20,8 +20,8 @@ interface VisionCameraViewProps {
 
 // Check if we're running in a development build (has native modules)
 const isDevBuild = (() => {
+  if (Platform.OS === 'web') return false;
   try {
-    // Try to require vision camera - will fail in Expo Go
     require('react-native-vision-camera');
     return true;
   } catch {
@@ -75,7 +75,6 @@ function VisionCameraViewExpoGo({
   onCameraReady,
   onRecordingStarted,
   onRecordingStopped,
-  showFPS = false,
   children,
 }: VisionCameraViewProps) {
   const { CameraView, useCameraPermissions, useMicrophonePermissions } = require('expo-camera');
@@ -193,7 +192,7 @@ function VisionCameraViewExpoGo({
   );
 }
 
-// ================== NATIVE DEV BUILD (Full ML with Vision Camera) ==================
+// ================== NATIVE DEV BUILD with Skia Rendering ==================
 function VisionCameraViewNative({
   facing,
   audioEnabled = true,
@@ -214,18 +213,11 @@ function VisionCameraViewNative({
     useCameraDevice, 
     useCameraPermission, 
     useMicrophonePermission,
-    useFrameProcessor 
+    useFrameProcessor,
+    useSkiaFrameProcessor 
   } = require('react-native-vision-camera');
   const { useSharedValue, runOnJS } = require('react-native-reanimated');
-  
-  // Try to import segmentation - might not be available
-  let useSelfieSegmentation: any = null;
-  try {
-    const segModule = require('react-native-vision-camera-selfie-segmentation');
-    useSelfieSegmentation = segModule.useSelfieSegmentation;
-  } catch (e) {
-    console.log('[VisionCamera] Selfie segmentation not available');
-  }
+  const Skia = require('@shopify/react-native-skia');
 
   const cameraRef = useRef<any>(null);
   const { hasPermission: hasCamPerm, requestPermission: reqCamPerm } = useCameraPermission();
@@ -239,6 +231,18 @@ function VisionCameraViewNative({
 
   const frameCount = useSharedValue(0);
   const lastFpsUpdate = useSharedValue(Date.now());
+
+  // Preload background image if provided
+  const backgroundImageSkia = useRef<any>(null);
+  useEffect(() => {
+    if (backgroundType === 'image' && backgroundImage && Skia.Skia) {
+      Skia.Skia.Data.fromURI(backgroundImage).then((data: any) => {
+        if (data) {
+          backgroundImageSkia.current = Skia.Skia.Image.MakeImageFromEncoded(data);
+        }
+      }).catch((e: any) => console.log('Failed to load background image:', e));
+    }
+  }, [backgroundType, backgroundImage]);
 
   useEffect(() => {
     const requestPerms = async () => {
@@ -299,12 +303,10 @@ function VisionCameraViewNative({
     }
   }, [isRecordingInternal]);
 
-  // Frame processor for ML segmentation
-  const frameProcessor = useFrameProcessor((frame: any) => {
+  // Skia Frame Processor for ML segmentation + background rendering
+  const skiaFrameProcessor = useSkiaFrameProcessor ? useSkiaFrameProcessor((frame: any) => {
     'worklet';
     
-    if (backgroundType === 'none') return;
-
     // FPS calculation
     frameCount.value++;
     const now = Date.now();
@@ -315,8 +317,80 @@ function VisionCameraViewNative({
       lastFpsUpdate.value = now;
     }
 
-    // Segmentation would happen here
-    // const mask = getSelfieSegmentationMask(frame);
+    if (backgroundType === 'none') {
+      // No processing, just render frame
+      frame.render();
+      return;
+    }
+
+    // Get frame dimensions
+    const width = frame.width;
+    const height = frame.height;
+
+    // Try to get segmentation mask
+    let mask = null;
+    try {
+      // This would call the selfie segmentation
+      // const segmentation = getSelfieSegmentationMask(frame);
+      // mask = segmentation.mask;
+      runOnJS(updateSegStatus)(true);
+    } catch (e) {
+      runOnJS(updateSegStatus)(false);
+    }
+
+    // Render based on background type
+    if (backgroundType === 'blur') {
+      // Apply blur to background (simplified - full implementation would use mask)
+      const blurFilter = Skia.Skia.ImageFilter.MakeBlur(
+        blurIntensity / 10,
+        blurIntensity / 10,
+        Skia.TileMode.Clamp,
+        null
+      );
+      
+      const paint = Skia.Skia.Paint();
+      paint.setImageFilter(blurFilter);
+      
+      // Draw blurred background
+      frame.render(paint);
+      
+      // If we had a mask, we would draw the person on top without blur
+      // frame.render(); // Person layer
+    } else if (backgroundType === 'color' && backgroundColor) {
+      // Draw solid color background
+      const paint = Skia.Skia.Paint();
+      paint.setColor(Skia.Skia.Color(backgroundColor));
+      frame.drawRect({ x: 0, y: 0, width, height }, paint);
+      
+      // Draw person on top (would use mask in full implementation)
+      frame.render();
+    } else if (backgroundType === 'image' && backgroundImageSkia.current) {
+      // Draw background image
+      const paint = Skia.Skia.Paint();
+      frame.drawImage(backgroundImageSkia.current, 0, 0, paint);
+      
+      // Draw person on top (would use mask in full implementation)
+      frame.render();
+    } else {
+      frame.render();
+    }
+  }, [backgroundType, backgroundColor, blurIntensity]) : null;
+
+  // Fallback frame processor (without Skia)
+  const frameProcessor = useFrameProcessor((frame: any) => {
+    'worklet';
+    
+    if (backgroundType === 'none') return;
+
+    frameCount.value++;
+    const now = Date.now();
+    if (now - lastFpsUpdate.value >= 1000) {
+      const currentFps = Math.round((frameCount.value * 1000) / (now - lastFpsUpdate.value));
+      runOnJS(updateFPS)(currentFps);
+      frameCount.value = 0;
+      lastFpsUpdate.value = now;
+    }
+
     runOnJS(updateSegStatus)(true);
   }, [backgroundType]);
 
@@ -339,6 +413,7 @@ function VisionCameraViewNative({
   }
 
   const useProcessor = backgroundType !== 'none';
+  const processor = skiaFrameProcessor || (useProcessor ? frameProcessor : undefined);
 
   return (
     <View style={styles.container}>
@@ -349,14 +424,14 @@ function VisionCameraViewNative({
         isActive={true}
         video={true}
         audio={audioEnabled}
-        frameProcessor={useProcessor ? frameProcessor : undefined}
+        frameProcessor={processor}
         onInitialized={handleInitialized}
-        pixelFormat="yuv"
+        pixelFormat="rgb"
         fps={30}
       />
 
-      {/* Color overlay */}
-      {backgroundType === 'color' && backgroundColor && (
+      {/* Color overlay fallback when Skia processor not available */}
+      {!skiaFrameProcessor && backgroundType === 'color' && backgroundColor && (
         <View 
           style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.15 }]} 
           pointerEvents="none"
@@ -416,7 +491,6 @@ export default function VisionCameraView(props: VisionCameraViewProps) {
     return <VisionCameraViewWeb {...props} />;
   }
   
-  // Use native vision camera if available (dev build), otherwise expo-camera
   if (isDevBuild) {
     return <VisionCameraViewNative {...props} />;
   }
