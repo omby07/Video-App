@@ -319,8 +319,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   videoContainer: {
-    height: 300,
+    height: 350,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
@@ -328,6 +331,15 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  noVideo: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noVideoText: {
+    color: '#666',
+    fontSize: 16,
+    marginTop: 12,
   },
   playButton: {
     position: 'absolute',
@@ -338,110 +350,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  inputContainer: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  label: {
-    color: '#fff',
-    fontSize: 14,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  input: {
+  infoCard: {
     backgroundColor: '#1a1a1a',
-    color: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  optionCard: {
-    backgroundColor: '#1a1a1a',
+    margin: 16,
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#222',
-  },
-  optionCardActive: {
-    borderColor: '#4A90E2',
-    backgroundColor: 'rgba(74, 144, 226, 0.1)',
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  optionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  optionTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  optionTitleActive: {
-    color: '#4A90E2',
-  },
-  optionTime: {
-    color: '#4A90E2',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  optionDescription: {
-    color: '#888',
-    fontSize: 13,
-  },
-  infoContainer: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
-  infoTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoLabel: {
+    color: '#888',
+    fontSize: 14,
+    flex: 1,
+  },
+  infoValue: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inputContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  label: {
+    color: '#888',
+    fontSize: 14,
     marginBottom: 8,
   },
-  infoText: {
-    color: '#888',
-    fontSize: 13,
+  input: {
+    backgroundColor: '#1a1a1a',
+    color: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   noticeContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 20,
-    gap: 12,
+    alignItems: 'center',
     backgroundColor: 'rgba(74, 144, 226, 0.1)',
-    margin: 20,
+    marginHorizontal: 16,
+    padding: 16,
     borderRadius: 12,
+    gap: 12,
   },
   noticeText: {
     flex: 1,
@@ -456,31 +412,37 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#222',
   },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  secondaryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    flex: 1,
+  discardButton: {
     flexDirection: 'row',
-    backgroundColor: '#4A90E2',
-    padding: 16,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
   },
-  primaryButtonText: {
+  discardButtonText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#4A90E2',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#333',
+  },
+  saveButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
