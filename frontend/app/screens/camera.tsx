@@ -146,8 +146,8 @@ export default function CameraScreen() {
 
   const bgInfo = getBackgroundDisplayInfo();
 
-  // Fallback if MLCameraView isn't available
-  if (!MLCameraView) {
+  // Fallback if SegmentedCameraView isn't available
+  if (!SegmentedCameraView) {
     return (
       <View style={styles.container}>
         <View style={styles.fallbackContainer}>
@@ -161,15 +161,14 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ML Camera View - Full Screen */}
-      <MLCameraView
+      {/* ML Segmented Camera View - Full Screen */}
+      <SegmentedCameraView
         facing={cameraType as 'front' | 'back'}
         isActive={true}
         enableAudio={audioEnabled}
         backgroundEffect={getBackgroundEffect() as any}
         blurIntensity={selectedBackground?.blurIntensity || 50}
         backgroundColor={selectedBackground?.value}
-        backgroundGradient={selectedBackground?.gradient}
         filterSettings={filterSettings}
         isRecording={isRecording}
         onCameraReady={handleCameraReady}
