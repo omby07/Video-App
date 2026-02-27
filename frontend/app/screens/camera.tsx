@@ -364,6 +364,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionContainer: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  subText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  permissionButtons: {
+    flexDirection: 'row',
+    gap: 16,
   },
   camera: {
     flex: 1,
@@ -372,13 +389,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     textAlign: 'center',
+    marginTop: 16,
   },
   permissionButton: {
     backgroundColor: '#4A90E2',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
-    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
