@@ -26,6 +26,7 @@ export default function PreviewScreen() {
   const [title, setTitle] = useState(`Video ${new Date().toLocaleDateString()}`);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
   
   const {
     userSettings,
