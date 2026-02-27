@@ -1,23 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 
 // Types
-interface FilterSettings {
-  brightness: number;
-  contrast: number;
-  saturation: number;
-  smoothing: number;
-}
-
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
   audioEnabled?: boolean;
   backgroundType?: 'none' | 'blur' | 'color' | 'image';
   backgroundColor?: string;
-  backgroundImage?: string;
   blurIntensity?: number;
-  filterSettings?: FilterSettings;
   isRecording?: boolean;
   onCameraReady?: () => void;
   onRecordingStarted?: () => void;
@@ -26,18 +18,7 @@ interface VisionCameraViewProps {
   children?: React.ReactNode;
 }
 
-// Check if we're running in a development build
-const isDevBuild = (() => {
-  if (Platform.OS === 'web') return false;
-  try {
-    require('react-native-vision-camera');
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
-// ================== WEB FALLBACK ==================
+// Web fallback
 function VisionCameraViewWeb({ 
   children, 
   onCameraReady,
@@ -54,7 +35,7 @@ function VisionCameraViewWeb({
         <Ionicons name="videocam-off" size={64} color="#888" />
         <Text style={styles.fallbackTitle}>Camera Preview</Text>
         <Text style={styles.fallbackText}>
-          Real-time camera effects require a native device.
+          Camera requires a mobile device.
         </Text>
         {backgroundType && backgroundType !== 'none' && (
           <View style={styles.effectPreview}>
@@ -72,20 +53,19 @@ function VisionCameraViewWeb({
   );
 }
 
-// ================== EXPO GO FALLBACK ==================
-function VisionCameraViewExpoGo({
+// Native camera using expo-camera
+function VisionCameraViewNative({
   facing,
   audioEnabled = true,
   backgroundType = 'none',
   backgroundColor,
+  blurIntensity = 50,
   isRecording = false,
   onCameraReady,
   onRecordingStarted,
   onRecordingStopped,
   children,
 }: VisionCameraViewProps) {
-  const { CameraView, useCameraPermissions, useMicrophonePermissions } = require('expo-camera');
-  
   const cameraRef = useRef<any>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -109,6 +89,7 @@ function VisionCameraViewExpoGo({
   }, [isRecording, isCameraReady]);
 
   const handleCameraReady = useCallback(() => {
+    console.log('[Camera] Ready');
     setIsCameraReady(true);
     onCameraReady?.();
   }, [onCameraReady]);
@@ -116,13 +97,15 @@ function VisionCameraViewExpoGo({
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || isRecordingInternal) return;
     try {
+      console.log('[Camera] Starting recording...');
       setIsRecordingInternal(true);
       onRecordingStarted?.();
       const video = await cameraRef.current.recordAsync({ maxDuration: 1800 });
+      console.log('[Camera] Recording finished:', video?.uri);
       setIsRecordingInternal(false);
       if (video?.uri) onRecordingStopped?.({ uri: video.uri });
     } catch (error) {
-      console.error('[VisionCamera-ExpoGo] Recording error:', error);
+      console.error('[Camera] Recording error:', error);
       setIsRecordingInternal(false);
     }
   }, [isRecordingInternal, onRecordingStarted, onRecordingStopped]);
@@ -130,9 +113,10 @@ function VisionCameraViewExpoGo({
   const stopRecording = useCallback(async () => {
     if (!cameraRef.current || !isRecordingInternal) return;
     try {
+      console.log('[Camera] Stopping recording...');
       await cameraRef.current.stopRecording();
     } catch (error) {
-      console.error('[VisionCamera-ExpoGo] Stop error:', error);
+      console.error('[Camera] Stop error:', error);
     }
   }, [isRecordingInternal]);
 
@@ -149,7 +133,8 @@ function VisionCameraViewExpoGo({
     return (
       <View style={styles.container}>
         <Ionicons name="camera-outline" size={48} color="#FF3B30" />
-        <Text style={styles.text}>Permissions required</Text>
+        <Text style={styles.text}>Camera permissions required</Text>
+        <Text style={styles.subText}>Please allow camera and microphone access</Text>
       </View>
     );
   }
@@ -164,6 +149,7 @@ function VisionCameraViewExpoGo({
         onCameraReady={handleCameraReady}
       />
       
+      {/* Color overlay effect */}
       {backgroundType === 'color' && backgroundColor && (
         <View 
           style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.2 }]} 
@@ -171,11 +157,10 @@ function VisionCameraViewExpoGo({
         />
       )}
       
-      {backgroundType !== 'none' && (
-        <View style={styles.limitationBadge}>
-          <Text style={styles.limitationText}>
-            Full ML effects in Dev Build
-          </Text>
+      {/* Blur effect indicator */}
+      {backgroundType === 'blur' && (
+        <View style={styles.effectIndicator}>
+          <Text style={styles.effectIndicatorText}>Blur: {blurIntensity}%</Text>
         </View>
       )}
       
@@ -184,6 +169,7 @@ function VisionCameraViewExpoGo({
       {!isCameraReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Starting camera...</Text>
         </View>
       )}
       
@@ -191,190 +177,15 @@ function VisionCameraViewExpoGo({
         <View style={styles.recordingIndicator}>
           <View style={styles.recordingDot} />
           <Text style={styles.recordingText}>REC</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ================== NATIVE DEV BUILD ==================
-function VisionCameraViewNative({
-  facing,
-  audioEnabled = true,
-  backgroundType = 'none',
-  backgroundColor,
-  blurIntensity = 50,
-  isRecording = false,
-  onCameraReady,
-  onRecordingStarted,
-  onRecordingStopped,
-  showFPS = false,
-  children,
-}: VisionCameraViewProps) {
-  const { 
-    Camera, 
-    useCameraDevice, 
-    useCameraPermission, 
-    useMicrophonePermission,
-    useFrameProcessor 
-  } = require('react-native-vision-camera');
-  const { useSharedValue, runOnJS } = require('react-native-reanimated');
-
-  const cameraRef = useRef<any>(null);
-  const { hasPermission: hasCamPerm, requestPermission: reqCamPerm } = useCameraPermission();
-  const { hasPermission: hasMicPerm, requestPermission: reqMicPerm } = useMicrophonePermission();
-  const device = useCameraDevice(facing);
-
-  const [isCameraReady, setIsCameraReady] = useState(false);
-  const [isRecordingInternal, setIsRecordingInternal] = useState(false);
-  const [fps, setFps] = useState(0);
-
-  const frameCount = useSharedValue(0);
-  const lastFpsUpdate = useSharedValue(Date.now());
-
-  useEffect(() => {
-    const requestPerms = async () => {
-      if (!hasCamPerm) await reqCamPerm();
-      if (!hasMicPerm && audioEnabled) await reqMicPerm();
-    };
-    requestPerms();
-  }, [hasCamPerm, hasMicPerm, audioEnabled]);
-
-  useEffect(() => {
-    if (isRecording && !isRecordingInternal && cameraRef.current && isCameraReady) {
-      startRecording();
-    } else if (!isRecording && isRecordingInternal) {
-      stopRecording();
-    }
-  }, [isRecording, isCameraReady]);
-
-  const handleInitialized = useCallback(() => {
-    console.log('[VisionCamera-Native] Initialized');
-    setIsCameraReady(true);
-    onCameraReady?.();
-  }, [onCameraReady]);
-
-  const updateFPS = useCallback((newFps: number) => setFps(newFps), []);
-
-  const startRecording = useCallback(async () => {
-    if (!cameraRef.current || isRecordingInternal) return;
-    try {
-      console.log('[VisionCamera-Native] Starting recording...');
-      setIsRecordingInternal(true);
-      onRecordingStarted?.();
-      
-      await cameraRef.current.startRecording({
-        onRecordingFinished: (video: { path: string }) => {
-          console.log('[VisionCamera-Native] Recording finished:', video.path);
-          setIsRecordingInternal(false);
-          onRecordingStopped?.({ uri: `file://${video.path}` });
-        },
-        onRecordingError: (error: Error) => {
-          console.error('[VisionCamera-Native] Recording error:', error);
-          setIsRecordingInternal(false);
-        },
-      });
-    } catch (error) {
-      console.error('[VisionCamera-Native] Start recording error:', error);
-      setIsRecordingInternal(false);
-    }
-  }, [isRecordingInternal, onRecordingStarted, onRecordingStopped]);
-
-  const stopRecording = useCallback(async () => {
-    if (!cameraRef.current || !isRecordingInternal) return;
-    try {
-      console.log('[VisionCamera-Native] Stopping recording...');
-      await cameraRef.current.stopRecording();
-    } catch (error) {
-      console.error('[VisionCamera-Native] Stop error:', error);
-    }
-  }, [isRecordingInternal]);
-
-  // Simple frame processor for FPS counting
-  const frameProcessor = useFrameProcessor((frame: any) => {
-    'worklet';
-    
-    if (backgroundType === 'none') return;
-
-    frameCount.value++;
-    const now = Date.now();
-    if (now - lastFpsUpdate.value >= 1000) {
-      const currentFps = Math.round((frameCount.value * 1000) / (now - lastFpsUpdate.value));
-      runOnJS(updateFPS)(currentFps);
-      frameCount.value = 0;
-      lastFpsUpdate.value = now;
-    }
-  }, [backgroundType]);
-
-  if (!hasCamPerm || (audioEnabled && !hasMicPerm)) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <Text style={styles.text}>Requesting permissions...</Text>
-      </View>
-    );
-  }
-
-  if (!device) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <Text style={styles.text}>Loading camera...</Text>
-      </View>
-    );
-  }
-
-  const useProcessor = backgroundType !== 'none';
-
-  return (
-    <View style={styles.container}>
-      <Camera
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        video={true}
-        audio={audioEnabled}
-        frameProcessor={useProcessor ? frameProcessor : undefined}
-        onInitialized={handleInitialized}
-        pixelFormat="yuv"
-      />
-
-      {backgroundType === 'color' && backgroundColor && (
-        <View 
-          style={[StyleSheet.absoluteFill, { backgroundColor, opacity: 0.15 }]} 
-          pointerEvents="none"
-        />
-      )}
-
-      {children}
-
-      {!isCameraReady && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Initializing camera...</Text>
-        </View>
-      )}
-
-      {isRecordingInternal && (
-        <View style={styles.recordingIndicator}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.recordingText}>REC</Text>
-        </View>
-      )}
-
-      {showFPS && isCameraReady && useProcessor && (
-        <View style={styles.fpsCounter}>
-          <Text style={styles.fpsText}>{fps} FPS</Text>
         </View>
       )}
 
       {isCameraReady && backgroundType !== 'none' && (
         <View style={styles.effectBadge}>
           <Text style={styles.effectBadgeText}>
-            {backgroundType === 'blur' ? `Blur ${blurIntensity}%` : ''}
-            {backgroundType === 'color' ? 'Color BG' : ''}
-            {backgroundType === 'image' ? 'Custom BG' : ''}
+            {backgroundType === 'blur' ? 'Blur' : ''}
+            {backgroundType === 'color' ? 'Color' : ''}
+            {backgroundType === 'image' ? 'Image' : ''}
           </Text>
         </View>
       )}
@@ -382,20 +193,14 @@ function VisionCameraViewNative({
   );
 }
 
-// ================== MAIN EXPORT ==================
+// Main export
 export default function VisionCameraView(props: VisionCameraViewProps) {
   if (Platform.OS === 'web') {
     return <VisionCameraViewWeb {...props} />;
   }
-  
-  if (isDevBuild) {
-    return <VisionCameraViewNative {...props} />;
-  }
-  
-  return <VisionCameraViewExpoGo {...props} />;
+  return <VisionCameraViewNative {...props} />;
 }
 
-// ================== STYLES ==================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -407,6 +212,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginTop: 16,
+  },
+  subText: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 8,
   },
   fallback: {
     alignItems: 'center',
@@ -475,21 +285,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  fpsCounter: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  fpsText: {
-    color: '#7ED321',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   effectBadge: {
     position: 'absolute',
     top: 80,
@@ -504,18 +299,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  limitationBadge: {
+  effectIndicator: {
     position: 'absolute',
     bottom: 100,
     alignSelf: 'center',
-    backgroundColor: 'rgba(255,149,0,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  limitationText: {
+  effectIndicatorText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
   },
 });
