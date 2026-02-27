@@ -30,6 +30,8 @@ export default function CameraScreen() {
     setCameraType,
     userSettings,
     selectedBackground,
+    audioEnabled,
+    setAudioEnabled,
   } = useStore();
 
   useEffect(() => {
