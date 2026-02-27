@@ -1,21 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Switch,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import VisionCameraView from '../../src/components/VisionCameraView';
+import { BACKGROUND_COLORS } from '../../src/constants';
 
 export default function VisionCameraTestScreen() {
   const router = useRouter();
   const [facing, setFacing] = useState<'front' | 'back'>('front');
-  const [backgroundType, setBackgroundType] = useState<'none' | 'blur' | 'color'>('none');
+  const [backgroundType, setBackgroundType] = useState<'none' | 'blur' | 'color' | 'image'>('none');
+  const [backgroundColor, setBackgroundColor] = useState('#4A90E2');
+  const [blurIntensity, setBlurIntensity] = useState(50);
   const [showFPS, setShowFPS] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
 
   const toggleFacing = () => {
     setFacing(prev => prev === 'front' ? 'back' : 'front');
@@ -25,8 +31,30 @@ export default function VisionCameraTestScreen() {
     setBackgroundType(prev => {
       if (prev === 'none') return 'blur';
       if (prev === 'blur') return 'color';
+      if (prev === 'color') return 'image';
       return 'none';
     });
+  };
+
+  const cycleBackgroundColor = () => {
+    const currentIndex = BACKGROUND_COLORS.findIndex(c => c.color === backgroundColor);
+    const nextIndex = (currentIndex + 1) % BACKGROUND_COLORS.length;
+    setBackgroundColor(BACKGROUND_COLORS[nextIndex].color);
+  };
+
+  const handleRecordingStarted = useCallback(() => {
+    console.log('[Test] Recording started');
+    setRecordingDuration(0);
+  }, []);
+
+  const handleRecordingStopped = useCallback((video: { uri: string }) => {
+    console.log('[Test] Recording stopped:', video.uri);
+    Alert.alert('Recording Complete', `Video saved to:\n${video.uri}`);
+    setIsRecording(false);
+  }, []);
+
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
   };
 
   return (
@@ -36,12 +64,16 @@ export default function VisionCameraTestScreen() {
         facing={facing}
         audioEnabled={true}
         backgroundType={backgroundType}
-        backgroundColor={{ r: 0, g: 255, b: 0 }}
+        backgroundColor={backgroundColor}
+        blurIntensity={blurIntensity}
+        isRecording={isRecording}
         showFPS={showFPS}
         onCameraReady={() => {
           console.log('[Test] Camera ready');
           setCameraReady(true);
         }}
+        onRecordingStarted={handleRecordingStarted}
+        onRecordingStopped={handleRecordingStopped}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -68,11 +100,22 @@ export default function VisionCameraTestScreen() {
             </View>
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Effect:</Text>
-              <Text style={styles.statusValue}>{backgroundType}</Text>
+              <Text style={styles.statusValue}>
+                {backgroundType === 'none' && 'None'}
+                {backgroundType === 'blur' && `Blur (${blurIntensity}%)`}
+                {backgroundType === 'color' && `Color`}
+                {backgroundType === 'image' && 'Custom Image'}
+              </Text>
             </View>
+            {backgroundType === 'color' && (
+              <View style={styles.statusRow}>
+                <Text style={styles.statusLabel}>Color:</Text>
+                <View style={[styles.colorDot, { backgroundColor }]} />
+              </View>
+            )}
           </View>
 
-          {/* Control Buttons */}
+          {/* Control Buttons Row 1 */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={styles.controlButton}
@@ -92,12 +135,40 @@ export default function VisionCameraTestScreen() {
                 color="#fff" 
               />
               <Text style={styles.buttonText}>
-                {backgroundType === 'none' && 'Enable Effect'}
-                {backgroundType === 'blur' && 'Blur Active'}
-                {backgroundType === 'color' && 'Color Active'}
+                {backgroundType === 'none' && 'No Effect'}
+                {backgroundType === 'blur' && 'Blur'}
+                {backgroundType === 'color' && 'Color'}
+                {backgroundType === 'image' && 'Image'}
               </Text>
             </TouchableOpacity>
+
+            {backgroundType === 'color' && (
+              <TouchableOpacity
+                style={[styles.controlButton, { backgroundColor }]}
+                onPress={cycleBackgroundColor}
+              >
+                <Ionicons name="color-palette" size={24} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
+
+          {/* Record Button */}
+          <TouchableOpacity
+            style={[
+              styles.recordButton, 
+              isRecording && styles.recordButtonActive
+            ]}
+            onPress={toggleRecording}
+          >
+            {isRecording ? (
+              <View style={styles.stopIcon} />
+            ) : (
+              <View style={styles.recordIcon} />
+            )}
+            <Text style={styles.recordButtonText}>
+              {isRecording ? 'Stop Recording' : 'Start Recording'}
+            </Text>
+          </TouchableOpacity>
 
           {/* FPS Toggle */}
           <View style={styles.settingRow}>
@@ -117,10 +188,9 @@ export default function VisionCameraTestScreen() {
               <Text style={styles.infoTitle}>Testing Instructions:</Text>
               <Text style={styles.infoText}>
                 1. Wait for camera to initialize{'\n'}
-                2. Tap "Enable Effect" to cycle through effects{'\n'}
+                2. Tap effect button to cycle through effects{'\n'}
                 3. Check FPS counter (should show ~30fps){'\n'}
-                4. Flip camera to test both sides{'\n'}
-                5. Watch console logs for frame processing
+                4. Test recording with/without effects
               </Text>
             </View>
           </View>
