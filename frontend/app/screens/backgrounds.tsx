@@ -341,12 +341,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 12,
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    borderRadius: 12,
   },
   infoText: {
     flex: 1,
+    color: '#4A90E2',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  disabledItem: {
+    opacity: 0.6,
+  },
+  disabledText: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  disabledSectionText: {
     color: '#888',
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 16,
+  },
+  disabledImageItem: {
+    opacity: 0.5,
+  },
+  lockIcon: {
+    position: 'absolute',
+    top: '35%',
+    left: '35%',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
