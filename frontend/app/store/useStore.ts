@@ -34,6 +34,8 @@ interface AppState {
   // Camera settings
   cameraType: 'front' | 'back';
   setCameraType: (type: 'front' | 'back') => void;
+  audioEnabled: boolean;
+  setAudioEnabled: (enabled: boolean) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
