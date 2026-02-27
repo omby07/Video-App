@@ -22,4 +22,10 @@ config.cacheStores = [
 // Reduce the number of workers to decrease resource usage
 config.maxWorkers = 2;
 
+// Add support for ML model files
+config.resolver.assetExts.push('bin', 'txt', 'tflite');
+
+// Configure transformer for large assets (ML models)
+config.transformer.assetPlugins = config.transformer.assetPlugins || [];
+
 module.exports = config;
