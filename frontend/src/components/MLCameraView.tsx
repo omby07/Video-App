@@ -1,9 +1,11 @@
 /**
- * MLCameraView - Simplified camera with effects support
- * Falls back gracefully if native modules aren't available
+ * MLCameraView - Camera with real-time Skia blur and color filters
+ * 
+ * This applies effects using useSkiaFrameProcessor which processes
+ * each frame through the GPU for real-time effects.
  */
 
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Platform, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -36,12 +38,15 @@ export interface MLCameraViewProps {
   style?: any;
 }
 
-// Try to load Vision Camera
+// Try to load native modules
 let Camera: any = null;
 let useCameraDevice: any = null;
 let useCameraPermission: any = null;
 let useMicrophonePermission: any = null;
-let isVisionCameraAvailable = false;
+let useSkiaFrameProcessor: any = null;
+let Skia: any = null;
+let TileMode: any = null;
+let isNativeAvailable = false;
 
 if (Platform.OS !== 'web') {
   try {
@@ -50,14 +55,20 @@ if (Platform.OS !== 'web') {
     useCameraDevice = VisionCamera.useCameraDevice;
     useCameraPermission = VisionCamera.useCameraPermission;
     useMicrophonePermission = VisionCamera.useMicrophonePermission;
-    isVisionCameraAvailable = true;
-    console.log('[MLCameraView] Vision Camera loaded successfully');
+    useSkiaFrameProcessor = VisionCamera.useSkiaFrameProcessor;
+    
+    const SkiaModule = require('@shopify/react-native-skia');
+    Skia = SkiaModule.Skia;
+    TileMode = SkiaModule.TileMode;
+    
+    isNativeAvailable = true;
+    console.log('[MLCameraView] Native modules loaded successfully');
   } catch (e) {
-    console.log('[MLCameraView] Vision Camera not available:', e);
+    console.log('[MLCameraView] Native modules not available:', e);
   }
 }
 
-// Fallback for when Vision Camera isn't available
+// Fallback component
 function CameraFallback({ onCameraReady, style }: MLCameraViewProps) {
   useEffect(() => {
     onCameraReady?.();
@@ -67,16 +78,16 @@ function CameraFallback({ onCameraReady, style }: MLCameraViewProps) {
     <View style={[styles.container, style]}>
       <View style={styles.fallbackContent}>
         <Ionicons name="videocam" size={64} color="#4ECDC4" />
-        <Text style={styles.fallbackTitle}>Camera Ready</Text>
+        <Text style={styles.fallbackTitle}>Camera Preview</Text>
         <Text style={styles.fallbackText}>
-          Native camera module loading...
+          Effects will be applied in the native build
         </Text>
       </View>
     </View>
   );
 }
 
-// Main Camera Component
+// Native Camera with Skia effects
 function NativeCamera({
   facing,
   isActive = true,
@@ -98,21 +109,17 @@ function NativeCamera({
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
   const recordingStartTime = useRef<number>(0);
 
-  // Use Vision Camera hooks
+  // Camera hooks
   const device = useCameraDevice?.(facing);
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission?.() || {};
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission?.() || {};
 
-  // Request permissions on mount
+  // Request permissions
   useEffect(() => {
     const getPermissions = async () => {
       try {
-        if (!hasCameraPermission) {
-          await requestCameraPermission?.();
-        }
-        if (!hasMicPermission) {
-          await requestMicPermission?.();
-        }
+        if (!hasCameraPermission) await requestCameraPermission?.();
+        if (!hasMicPermission) await requestMicPermission?.();
       } catch (error) {
         console.error('[MLCameraView] Permission error:', error);
         onError?.(error as Error);
@@ -120,6 +127,66 @@ function NativeCamera({
     };
     getPermissions();
   }, []);
+
+  // Calculate blur sigma from intensity (0-100 -> 0-30 sigma)
+  const blurSigma = useMemo(() => {
+    if (backgroundEffect !== 'blur') return 0;
+    return (blurIntensity / 100) * 30;
+  }, [backgroundEffect, blurIntensity]);
+
+  // Calculate color matrix from filter settings
+  const colorMatrix = useMemo(() => {
+    if (!filterSettings) return null;
+    
+    const { brightness = 0, contrast = 0, saturation = 0 } = filterSettings;
+    
+    // Skip if no adjustments
+    if (brightness === 0 && contrast === 0 && saturation === 0) return null;
+    
+    const b = brightness;
+    const c = 1 + contrast;
+    const s = 1 + saturation;
+    
+    // Saturation matrix
+    const sr = (1 - s) * 0.2126;
+    const sg = (1 - s) * 0.7152;
+    const sb = (1 - s) * 0.0722;
+    
+    return [
+      c * (sr + s), c * sg,       c * sb,       0, b,
+      c * sr,       c * (sg + s), c * sb,       0, b,
+      c * sr,       c * sg,       c * (sb + s), 0, b,
+      0,            0,            0,            1, 0,
+    ];
+  }, [filterSettings]);
+
+  // Skia frame processor - applies blur and color effects
+  const frameProcessor = useSkiaFrameProcessor?.((frame: any) => {
+    'worklet';
+    
+    // Create paint object
+    const paint = Skia.Paint();
+    
+    // Apply blur if enabled
+    if (blurSigma > 0) {
+      const blurFilter = Skia.ImageFilter.MakeBlur(
+        blurSigma, 
+        blurSigma, 
+        TileMode.Clamp, 
+        null
+      );
+      paint.setImageFilter(blurFilter);
+    }
+    
+    // Apply color matrix filter if we have adjustments
+    if (colorMatrix) {
+      const matrixColorFilter = Skia.ColorFilter.MakeMatrix(colorMatrix);
+      paint.setColorFilter(matrixColorFilter);
+    }
+    
+    // Render the frame with effects
+    frame.render(paint);
+  }, [blurSigma, colorMatrix]);
 
   const handleCameraReady = useCallback(() => {
     console.log('[MLCameraView] Camera initialized');
@@ -142,7 +209,7 @@ function NativeCamera({
     if (!cameraRef.current || isRecordingInternal) return;
     
     try {
-      console.log('[MLCameraView] Starting recording...');
+      console.log('[MLCameraView] Starting recording with effects...');
       setIsRecordingInternal(true);
       recordingStartTime.current = Date.now();
       onRecordingStarted?.();
@@ -174,7 +241,6 @@ function NativeCamera({
     if (!cameraRef.current || !isRecordingInternal) return;
     
     try {
-      console.log('[MLCameraView] Stopping recording...');
       await cameraRef.current.stopRecording();
     } catch (error) {
       console.error('[MLCameraView] Stop recording error:', error);
@@ -213,6 +279,7 @@ function NativeCamera({
         isActive={isActive}
         video={true}
         audio={enableAudio}
+        frameProcessor={frameProcessor}
         onInitialized={handleCameraReady}
         onError={(error: any) => {
           console.error('[MLCameraView] Camera error:', error);
@@ -223,16 +290,14 @@ function NativeCamera({
       {/* Effect badges */}
       {showEffectBadges && isCameraReady && (
         <View style={styles.badgeContainer}>
-          {backgroundEffect !== 'none' && (
+          {backgroundEffect === 'blur' && blurIntensity > 0 && (
             <View style={[styles.badge, styles.bgBadge]}>
-              <Ionicons name="layers" size={12} color="#fff" />
-              <Text style={styles.badgeText}>
-                {backgroundEffect === 'blur' ? `Blur ${blurIntensity}%` : 'BG'}
-              </Text>
+              <Ionicons name="eye-off" size={12} color="#fff" />
+              <Text style={styles.badgeText}>Blur {blurIntensity}%</Text>
             </View>
           )}
           
-          {filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) && (
+          {filterSettings && (filterSettings.brightness !== 0 || filterSettings.contrast !== 0 || filterSettings.saturation !== 0) && (
             <View style={[styles.badge, styles.filterBadge]}>
               <Ionicons name="color-wand" size={12} color="#fff" />
               <Text style={styles.badgeText}>Touch-up</Text>
@@ -262,18 +327,17 @@ function NativeCamera({
 
 // Main export
 export default function MLCameraView(props: MLCameraViewProps) {
-  if (!isVisionCameraAvailable) {
+  if (!isNativeAvailable) {
     return <CameraFallback {...props} />;
   }
-  
   return <NativeCamera {...props} />;
 }
 
 export function useMLCameraFeatures() {
   return {
-    isNativeAvailable: isVisionCameraAvailable,
-    supportsBackgroundBlur: isVisionCameraAvailable,
-    supportsTouchUpFilters: isVisionCameraAvailable,
+    isNativeAvailable,
+    supportsBlur: isNativeAvailable,
+    supportsColorFilters: isNativeAvailable,
   };
 }
 
