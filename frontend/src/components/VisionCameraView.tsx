@@ -1,9 +1,32 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator, Image } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+
+// Only import vision-camera on native platforms
+let Camera: any = null;
+let useCameraDevice: any = null;
+let useCameraPermission: any = null;
+let useFrameProcessor: any = null;
+let getSelfieSegments: any = null;
+
+// Check if we're on native platform
+const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
+
+if (isNative) {
+  try {
+    const VisionCamera = require('react-native-vision-camera');
+    Camera = VisionCamera.Camera;
+    useCameraDevice = VisionCamera.useCameraDevice;
+    useCameraPermission = VisionCamera.useCameraPermission;
+    useFrameProcessor = VisionCamera.useFrameProcessor;
+    
+    const SegmentationModule = require('react-native-vision-camera-selfie-segmentation');
+    getSelfieSegments = SegmentationModule.getSelfieSegments;
+  } catch (e) {
+    console.log('[VisionCamera] Native modules not available');
+  }
+}
+
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
-import { Worklets } from 'react-native-worklets-core';
-import { getSelfieSegments } from 'react-native-vision-camera-selfie-segmentation';
 
 interface VisionCameraViewProps {
   facing: 'front' | 'back';
