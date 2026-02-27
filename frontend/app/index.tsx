@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { useStore } from '../src/store/useStore';
 import { api } from '../src/utils/api';
 import CameraScreen from './screens/camera';
+
+const { width, height } = Dimensions.get('window');
 
 export default function Index() {
   const { setUserSettings } = useStore();
 
   useEffect(() => {
-    // Load user settings on app start
     loadSettings();
   }, []);
 
@@ -21,16 +22,5 @@ export default function Index() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <CameraScreen />
-    </View>
-  );
+  return <CameraScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-});
