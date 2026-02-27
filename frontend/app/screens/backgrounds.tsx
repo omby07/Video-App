@@ -175,19 +175,21 @@ export default function BackgroundsScreen() {
           </View>
         </View>
 
-        {/* Predefined Backgrounds */}
+        {/* Predefined Backgrounds - DISABLED */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Predefined Backgrounds</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Predefined Backgrounds (Coming Soon)</Text>
+          </View>
+          <Text style={styles.disabledSectionText}>
+            Background replacement requires ML-based person segmentation to separate you from the background. This feature will be available in a future update with proper implementation.
+          </Text>
           <View style={styles.grid}>
-            {PREDEFINED_BACKGROUNDS.map((bg) => (
-              <TouchableOpacity
-                key={bg.id}
-                style={styles.imageItem}
-                onPress={() => selectPredefinedBackground(bg)}
-              >
-                <Image source={{ uri: bg.url }} style={styles.imageBox} />
-                <Text style={styles.imageName}>{bg.name}</Text>
-              </TouchableOpacity>
+            {PREDEFINED_BACKGROUNDS.slice(0, 3).map((bg) => (
+              <View key={bg.id} style={[styles.imageItem, styles.disabledImageItem]}>
+                <Image source={{ uri: bg.url }} style={[styles.imageBox, { opacity: 0.3 }]} />
+                <Ionicons name="lock-closed" size={24} color="#666" style={styles.lockIcon} />
+                <Text style={[styles.imageName, { color: '#666' }]}>{bg.name}</Text>
+              </View>
             ))}
           </View>
         </View>
