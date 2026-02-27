@@ -5,11 +5,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
+
+// Check if dev build is available
+const isDevBuild = (() => {
+  if (Platform.OS === 'web') return false;
+  try {
+    require('react-native-vision-camera');
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 export default function FiltersScreen() {
   const router = useRouter();
@@ -34,6 +46,26 @@ export default function FiltersScreen() {
     setFilterSettings(resetSettings);
   };
 
+  const applyPreset = (preset: 'natural' | 'warm' | 'cool' | 'vivid') => {
+    let newSettings = { ...localSettings };
+    switch (preset) {
+      case 'natural':
+        newSettings = { ...newSettings, brightness: 0.05, contrast: 0.05, saturation: 0, smoothing: 0.2 };
+        break;
+      case 'warm':
+        newSettings = { ...newSettings, brightness: 0.1, contrast: 0.05, saturation: 0.15, smoothing: 0.3 };
+        break;
+      case 'cool':
+        newSettings = { ...newSettings, brightness: 0, contrast: 0.1, saturation: -0.1, smoothing: 0.2 };
+        break;
+      case 'vivid':
+        newSettings = { ...newSettings, brightness: 0.1, contrast: 0.15, saturation: 0.25, smoothing: 0.1 };
+        break;
+    }
+    setLocalSettings(newSettings);
+    setFilterSettings(newSettings);
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -48,32 +80,62 @@ export default function FiltersScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Important Notice */}
-        <View style={styles.noticeCard}>
-          <Ionicons name="information-circle" size={24} color="#FFA500" />
-          <View style={styles.noticeContent}>
-            <Text style={styles.noticeTitle}>Phase 2 Feature</Text>
-            <Text style={styles.noticeText}>
-              These adjustments are saved but not currently applied to videos in real-time. Real-time filters require:
-              {'\n\n'}• expo-gl with custom GLSL shaders
-              {'\n'}• Or third-party video SDK
-              {'\n\n'}Will be implemented in Phase 2 with proper video processing pipeline.
-            </Text>
+        {/* Dev Build Status */}
+        {isDevBuild ? (
+          <View style={styles.devBuildBanner}>
+            <Ionicons name="checkmark-circle" size={20} color="#7ED321" />
+            <Text style={styles.devBuildText}>Real-time filters active</Text>
+          </View>
+        ) : (
+          <View style={styles.expoGoBanner}>
+            <Ionicons name="information-circle" size={20} color="#FFA500" />
+            <Text style={styles.expoGoText}>Expo Go: Settings saved for Dev Build</Text>
+          </View>
+        )}
+
+        {/* Quick Presets */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Presets</Text>
+          <View style={styles.presetGrid}>
+            <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('natural')}>
+              <View style={[styles.presetIcon, { backgroundColor: '#E8E4D9' }]}>
+                <Ionicons name="leaf" size={24} color="#8B7355" />
+              </View>
+              <Text style={styles.presetName}>Natural</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('warm')}>
+              <View style={[styles.presetIcon, { backgroundColor: '#FFE4B5' }]}>
+                <Ionicons name="sunny" size={24} color="#FF8C00" />
+              </View>
+              <Text style={styles.presetName}>Warm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('cool')}>
+              <View style={[styles.presetIcon, { backgroundColor: '#E0F0FF' }]}>
+                <Ionicons name="snow" size={24} color="#4A90E2" />
+              </View>
+              <Text style={styles.presetName}>Cool</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('vivid')}>
+              <View style={[styles.presetIcon, { backgroundColor: '#FFE0F0' }]}>
+                <Ionicons name="sparkles" size={24} color="#FF69B4" />
+              </View>
+              <Text style={styles.presetName}>Vivid</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Sliders Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Adjustments (Preview Only)</Text>
+          <Text style={styles.sectionTitle}>Fine-tune Adjustments</Text>
           
           {/* Brightness */}
           <View style={styles.sliderContainer}>
             <View style={styles.sliderHeader}>
               <View style={styles.sliderLabelRow}>
-                <Ionicons name="sunny-outline" size={20} color="#888" />
+                <Ionicons name="sunny-outline" size={20} color="#FFD700" />
                 <Text style={styles.sliderLabel}>Brightness</Text>
               </View>
-              <Text style={styles.sliderValue}>{Math.round(localSettings.brightness * 100)}</Text>
+              <Text style={styles.sliderValue}>{localSettings.brightness > 0 ? '+' : ''}{Math.round(localSettings.brightness * 100)}</Text>
             </View>
             <Slider
               style={styles.slider}
@@ -81,9 +143,9 @@ export default function FiltersScreen() {
               maximumValue={0.5}
               value={localSettings.brightness}
               onValueChange={(value) => handleSliderChange('brightness', value)}
-              minimumTrackTintColor="#4A90E2"
+              minimumTrackTintColor="#FFD700"
               maximumTrackTintColor="#333"
-              thumbTintColor="#4A90E2"
+              thumbTintColor="#FFD700"
             />
             <View style={styles.sliderLabels}>
               <Text style={styles.sliderLabelText}>Darker</Text>
@@ -95,10 +157,10 @@ export default function FiltersScreen() {
           <View style={styles.sliderContainer}>
             <View style={styles.sliderHeader}>
               <View style={styles.sliderLabelRow}>
-                <Ionicons name="contrast-outline" size={20} color="#888" />
+                <Ionicons name="contrast-outline" size={20} color="#9370DB" />
                 <Text style={styles.sliderLabel}>Contrast</Text>
               </View>
-              <Text style={styles.sliderValue}>{Math.round(localSettings.contrast * 100)}</Text>
+              <Text style={styles.sliderValue}>{localSettings.contrast > 0 ? '+' : ''}{Math.round(localSettings.contrast * 100)}</Text>
             </View>
             <Slider
               style={styles.slider}
@@ -106,13 +168,13 @@ export default function FiltersScreen() {
               maximumValue={0.5}
               value={localSettings.contrast}
               onValueChange={(value) => handleSliderChange('contrast', value)}
-              minimumTrackTintColor="#4A90E2"
+              minimumTrackTintColor="#9370DB"
               maximumTrackTintColor="#333"
-              thumbTintColor="#4A90E2"
+              thumbTintColor="#9370DB"
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabelText}>Less</Text>
-              <Text style={styles.sliderLabelText}>More</Text>
+              <Text style={styles.sliderLabelText}>Flat</Text>
+              <Text style={styles.sliderLabelText}>Punchy</Text>
             </View>
           </View>
 
@@ -120,10 +182,10 @@ export default function FiltersScreen() {
           <View style={styles.sliderContainer}>
             <View style={styles.sliderHeader}>
               <View style={styles.sliderLabelRow}>
-                <Ionicons name="color-palette-outline" size={20} color="#888" />
+                <Ionicons name="color-palette-outline" size={20} color="#FF69B4" />
                 <Text style={styles.sliderLabel}>Saturation</Text>
               </View>
-              <Text style={styles.sliderValue}>{Math.round(localSettings.saturation * 100)}</Text>
+              <Text style={styles.sliderValue}>{localSettings.saturation > 0 ? '+' : ''}{Math.round(localSettings.saturation * 100)}</Text>
             </View>
             <Slider
               style={styles.slider}
@@ -131,12 +193,12 @@ export default function FiltersScreen() {
               maximumValue={0.5}
               value={localSettings.saturation}
               onValueChange={(value) => handleSliderChange('saturation', value)}
-              minimumTrackTintColor="#4A90E2"
+              minimumTrackTintColor="#FF69B4"
               maximumTrackTintColor="#333"
-              thumbTintColor="#4A90E2"
+              thumbTintColor="#FF69B4"
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabelText}>B&W</Text>
+              <Text style={styles.sliderLabelText}>Muted</Text>
               <Text style={styles.sliderLabelText}>Vibrant</Text>
             </View>
           </View>
@@ -145,10 +207,10 @@ export default function FiltersScreen() {
           <View style={styles.sliderContainer}>
             <View style={styles.sliderHeader}>
               <View style={styles.sliderLabelRow}>
-                <Ionicons name="sparkles-outline" size={20} color="#888" />
+                <Ionicons name="sparkles" size={20} color="#7ED321" />
                 <Text style={styles.sliderLabel}>Skin Smoothing</Text>
               </View>
-              <Text style={styles.sliderValue}>{Math.round(localSettings.smoothing * 100)}</Text>
+              <Text style={styles.sliderValue}>{Math.round(localSettings.smoothing * 100)}%</Text>
             </View>
             <Slider
               style={styles.slider}
@@ -156,43 +218,56 @@ export default function FiltersScreen() {
               maximumValue={1}
               value={localSettings.smoothing}
               onValueChange={(value) => handleSliderChange('smoothing', value)}
-              minimumTrackTintColor="#4A90E2"
+              minimumTrackTintColor="#7ED321"
               maximumTrackTintColor="#333"
-              thumbTintColor="#4A90E2"
+              thumbTintColor="#7ED321"
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabelText}>None</Text>
-              <Text style={styles.sliderLabelText}>Maximum</Text>
+              <Text style={styles.sliderLabelText}>Natural</Text>
+              <Text style={styles.sliderLabelText}>Smooth</Text>
             </View>
           </View>
         </View>
 
-        {/* What's Saved */}
-        <View style={styles.savedSection}>
-          <Text style={styles.savedTitle}>These Settings Are:</Text>
-          <View style={styles.savedItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#4A90E2" />
-            <Text style={styles.savedText}>Saved to your preferences</Text>
-          </View>
-          <View style={styles.savedItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#4A90E2" />
-            <Text style={styles.savedText}>Stored with video metadata</Text>
-          </View>
-          <View style={styles.savedItem}>
-            <Ionicons name="close-circle" size={20} color="#FF3B30" />
-            <Text style={styles.savedText}>Not applied in real-time (Phase 2)</Text>
+        {/* Current Settings Summary */}
+        <View style={styles.summarySection}>
+          <Text style={styles.summaryTitle}>Current Settings</Text>
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Brightness</Text>
+              <Text style={[styles.summaryValue, localSettings.brightness !== 0 && styles.summaryValueActive]}>
+                {localSettings.brightness > 0 ? '+' : ''}{Math.round(localSettings.brightness * 100)}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Contrast</Text>
+              <Text style={[styles.summaryValue, localSettings.contrast !== 0 && styles.summaryValueActive]}>
+                {localSettings.contrast > 0 ? '+' : ''}{Math.round(localSettings.contrast * 100)}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Saturation</Text>
+              <Text style={[styles.summaryValue, localSettings.saturation !== 0 && styles.summaryValueActive]}>
+                {localSettings.saturation > 0 ? '+' : ''}{Math.round(localSettings.saturation * 100)}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Smoothing</Text>
+              <Text style={[styles.summaryValue, localSettings.smoothing !== 0 && styles.summaryValueActive]}>
+                {Math.round(localSettings.smoothing * 100)}%
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Implementation Info */}
+        {/* Info */}
         <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Why Don't These Work Yet?</Text>
+          <Ionicons name="information-circle-outline" size={20} color="#4A90E2" />
           <Text style={styles.infoText}>
-            Real-time video filters require one of:{'\n\n'}
-            <Text style={styles.infoBullet}>• expo-gl</Text> with custom GLSL shaders for GPU processing{'\n'}
-            <Text style={styles.infoBullet}>• Native camera</Text> filter APIs (platform-specific){'\n'}
-            <Text style={styles.infoBullet}>• Third-party SDK</Text> like Stream.io or Agora{'\n\n'}
-            These require significant development time and either native code or SDK integration. They will be properly implemented in Phase 2.
+            {isDevBuild 
+              ? 'Filters are applied in real-time using Skia GPU rendering during recording.'
+              : 'In Expo Go, settings are saved but not applied in real-time. Create a development build to enable real-time filters.'
+            }
           </Text>
         </View>
       </ScrollView>
@@ -200,7 +275,8 @@ export default function FiltersScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.doneButton} onPress={() => router.back()}>
-          <Text style={styles.doneButtonText}>Save Settings</Text>
+          <Ionicons name="checkmark" size={20} color="#fff" />
+          <Text style={styles.doneButtonText}>Apply Filters</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -230,29 +306,35 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  noticeCard: {
+  devBuildBanner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(126, 211, 33, 0.1)',
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(126, 211, 33, 0.3)',
+  },
+  devBuildText: {
+    color: '#7ED321',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  expoGoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(255, 165, 0, 0.1)',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 165, 0, 0.3)',
+    paddingVertical: 12,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 165, 0, 0.3)',
   },
-  noticeContent: {
-    flex: 1,
-  },
-  noticeTitle: {
+  expoGoText: {
     color: '#FFA500',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  noticeText: {
-    color: '#FFA500',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    fontWeight: '600',
   },
   section: {
     padding: 20,
@@ -263,15 +345,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  presetButton: {
+    alignItems: 'center',
+    width: '22%',
+  },
+  presetIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  presetName: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
   sliderContainer: {
-    marginBottom: 32,
+    marginBottom: 28,
   },
   sliderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   sliderLabelRow: {
     flexDirection: 'row',
@@ -287,6 +390,8 @@ const styles = StyleSheet.create({
     color: '#4A90E2',
     fontSize: 15,
     fontWeight: '700',
+    minWidth: 40,
+    textAlign: 'right',
   },
   slider: {
     width: '100%',
@@ -301,48 +406,56 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 12,
   },
-  savedSection: {
+  summarySection: {
     padding: 20,
     backgroundColor: '#1a1a1a',
     marginHorizontal: 16,
-    marginVertical: 8,
+    marginVertical: 16,
     borderRadius: 12,
   },
-  savedTitle: {
+  summaryTitle: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,
   },
-  savedItem: {
+  summaryGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  savedText: {
+  summaryItem: {
+    width: '45%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryLabel: {
     color: '#888',
     fontSize: 13,
+  },
+  summaryValue: {
+    color: '#666',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  summaryValueActive: {
+    color: '#4A90E2',
   },
   infoSection: {
-    padding: 20,
+    flexDirection: 'row',
+    padding: 16,
     marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  infoTitle: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 16,
+    backgroundColor: 'rgba(74, 144, 226, 0.1)',
+    borderRadius: 12,
+    gap: 12,
   },
   infoText: {
-    color: '#888',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  infoBullet: {
+    flex: 1,
     color: '#4A90E2',
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 18,
   },
   footer: {
     padding: 16,
@@ -350,10 +463,13 @@ const styles = StyleSheet.create({
     borderTopColor: '#222',
   },
   doneButton: {
+    flexDirection: 'row',
     backgroundColor: '#4A90E2',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   doneButtonText: {
     color: '#fff',
