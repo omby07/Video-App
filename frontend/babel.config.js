@@ -5,13 +5,8 @@ module.exports = function (api) {
     plugins: [
       // Worklets core plugin for frame processors
       ['react-native-worklets-core/plugin'],
-      // Reanimated plugin with selfie segmentation global
-      [
-        'react-native-reanimated/plugin',
-        {
-          globals: ['__getSelfieSegmentation'],
-        },
-      ],
+      // Reanimated plugin
+      'react-native-reanimated/plugin',
     ],
   };
 };
