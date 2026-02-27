@@ -378,4 +378,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
+  effectsNotice: {
+    position: 'absolute',
+    bottom: 150,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  effectsNoticeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
