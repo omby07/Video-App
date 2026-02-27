@@ -82,4 +82,6 @@ export const useStore = create<AppState>((set) => ({
   // Camera settings
   cameraType: 'front',
   setCameraType: (type) => set({ cameraType: type }),
+  audioEnabled: true,
+  setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
 }));
