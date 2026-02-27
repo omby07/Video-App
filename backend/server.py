@@ -247,6 +247,7 @@ async def upgrade_to_premium():
 @api_router.post("/share")
 async def create_shareable_link(data: ShareableLinkCreate):
     """Create a shareable link for a video"""
+    from datetime import timedelta
     share_id = str(uuid.uuid4())[:8]
     
     link_data = {
@@ -258,7 +259,7 @@ async def create_shareable_link(data: ShareableLinkCreate):
         "views": 0,
         "unique_views": 0,
         "created_at": datetime.utcnow(),
-        "expires_at": datetime.utcnow().replace(day=datetime.utcnow().day + 30),
+        "expires_at": datetime.utcnow() + timedelta(days=30),
     }
     
     await db.shareable_links.insert_one(link_data)
