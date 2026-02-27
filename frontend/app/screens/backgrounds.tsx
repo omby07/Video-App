@@ -137,22 +137,19 @@ export default function BackgroundsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Blur Option */}
+        {/* Blur Option - DISABLED */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Effects</Text>
-          <TouchableOpacity
-            style={[
-              styles.colorItem,
-              selectedBackground?.type === 'blur' && styles.selectedItem,
-            ]}
-            onPress={() => selectBackground('blur', 'enabled')}
-          >
+          <Text style={styles.sectionTitle}>Effects (Coming Soon)</Text>
+          <View style={[styles.colorItem, styles.disabledItem]}>
             <View style={[styles.colorBox, { backgroundColor: '#333' }]}>
-              <Ionicons name="color-filter-outline" size={32} color="#fff" />
+              <Ionicons name="color-filter-outline" size={32} color="#666" />
             </View>
-            <Text style={styles.colorName}>Blur Background</Text>
-            {selectedBackground?.type === 'blur' && <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />}
-          </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.colorName}>Blur Background</Text>
+              <Text style={styles.disabledText}>Requires ML person segmentation</Text>
+            </View>
+            <Ionicons name="lock-closed" size={24} color="#666" />
+          </View>
         </View>
 
         {/* Colors */}
