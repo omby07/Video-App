@@ -152,6 +152,25 @@ export default function CameraScreen() {
         ref={cameraRef}
         mode="video"
       >
+        {/* Visual Effect Overlays - Preview Only */}
+        {selectedBackground && selectedBackground.type === 'blur' && (
+          <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark" />
+        )}
+        {selectedBackground && selectedBackground.type === 'color' && (
+          <View style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: BACKGROUND_COLORS.find(c => c.id === selectedBackground.value)?.color, opacity: 0.3 }
+          ]} />
+        )}
+        
+        {/* Effects Preview Notice */}
+        {(selectedBackground || isRecording) && (
+          <View style={styles.effectsNotice}>
+            <Ionicons name="eye-outline" size={14} color="#FFD700" />
+            <Text style={styles.effectsNoticeText}>Effects preview • Applied after recording</Text>
+          </View>
+        )}
+        
         {/* Top Bar */}
         <View style={styles.topBar}>
           <TouchableOpacity
