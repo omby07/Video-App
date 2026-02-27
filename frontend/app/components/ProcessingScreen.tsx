@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { processVideo, ProcessingOptions, formatProcessingTime } from '../utils/videoProcessor';
+import { processVideo, ProcessingOptions, formatProcessingTime } from '../../src/utils/videoProcessor';
 
 interface ProcessingScreenProps {
   videoUri: string;

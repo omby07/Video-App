@@ -13,8 +13,8 @@ import {
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useStore } from '../store/useStore';
-import { api } from '../utils/api';
+import { useStore } from '../../src/store/useStore';
+import { api } from '../../src/utils/api';
 import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
