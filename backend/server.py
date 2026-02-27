@@ -85,6 +85,36 @@ class UserSettingsUpdate(BaseModel):
     default_quality: Optional[str] = None
 
 
+# Shareable Link Models (Phase 4)
+class ShareableLinkCreate(BaseModel):
+    title: str
+    duration: int
+    videoUri: str
+
+class ShareableLink(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    title: str
+    duration: int
+    video_uri: str
+    share_url: str = ""
+    views: int = 0
+    unique_views: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime = None
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.share_url:
+            self.share_url = f"https://interview.video/v/{self.id}"
+        if not self.expires_at:
+            self.expires_at = datetime.utcnow().replace(day=datetime.utcnow().day + 30)
+
+class ShareableStatsResponse(BaseModel):
+    views: int
+    unique_views: int
+    last_viewed: Optional[datetime] = None
+
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
