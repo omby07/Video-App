@@ -1,14 +1,13 @@
 /**
- * SegmentedCameraView - Camera with ML Person Segmentation
+ * SegmentedCameraView - Professional Camera with Visual Polish
  * 
- * Uses react-native-vision-camera-selfie-segmentation to:
- * 1. Detect the person in each frame using ML
- * 2. Apply background color/effects only to the background
- * 3. Keep the person sharp and clear
+ * Provides "boardroom-ready" video recording with:
+ * - Clean professional backdrop options
+ * - Subtle lighting/color adjustments
+ * - Full-screen camera feed
  * 
- * Note: This plugin is experimental - background blur may not work perfectly
- * in all conditions. The app will fall back gracefully to standard camera
- * if segmentation fails.
+ * Note: True ML person segmentation would require a compatible native plugin.
+ * This version uses professional-grade color/blur effects instead.
  */
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
@@ -19,7 +18,6 @@ import {
   Platform, 
   Dimensions, 
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -37,11 +35,11 @@ export interface SegmentedCameraViewProps {
   facing: 'front' | 'back';
   isActive?: boolean;
   enableAudio?: boolean;
-  // Background effects - these are applied ONLY to the background
+  // Background effects
   backgroundEffect?: 'none' | 'blur' | 'color';
   blurIntensity?: number; // 0-100
   backgroundColor?: string; // Hex color for replacement
-  // Touch-up filters - applied to person
+  // Touch-up filters
   filterSettings?: FilterSettings;
   // Recording
   isRecording?: boolean;
@@ -60,37 +58,15 @@ let Camera: any = null;
 let useCameraDevice: any = null;
 let useCameraPermission: any = null;
 let useMicrophonePermission: any = null;
-let useFrameProcessor: any = null;
-let runOnJS: any = null;
-let getSelfieSegments: any = null;
 let isNativeAvailable = false;
 
 if (Platform.OS !== 'web') {
   try {
-    // Vision Camera
     const VisionCamera = require('react-native-vision-camera');
     Camera = VisionCamera.Camera;
     useCameraDevice = VisionCamera.useCameraDevice;
     useCameraPermission = VisionCamera.useCameraPermission;
     useMicrophonePermission = VisionCamera.useMicrophonePermission;
-    useFrameProcessor = VisionCamera.useFrameProcessor;
-    
-    // Reanimated for runOnJS
-    try {
-      const Reanimated = require('react-native-reanimated');
-      runOnJS = Reanimated.runOnJS;
-    } catch (e) {
-      console.log('[SegmentedCamera] Reanimated not available');
-    }
-    
-    // Selfie Segmentation - Note: function is getSelfieSegments (with 's')
-    try {
-      const SegmentationPlugin = require('react-native-vision-camera-selfie-segmentation');
-      getSelfieSegments = SegmentationPlugin.getSelfieSegments;
-      console.log('[SegmentedCamera] Segmentation plugin loaded');
-    } catch (e) {
-      console.log('[SegmentedCamera] Segmentation plugin not available:', e);
-    }
     
     isNativeAvailable = true;
     console.log('[SegmentedCamera] Native modules loaded successfully');
@@ -108,16 +84,16 @@ function CameraFallback({ onCameraReady, backgroundEffect, backgroundColor, styl
   return (
     <View style={[styles.container, style]}>
       <View style={styles.fallbackContent}>
-        <Ionicons name="person" size={64} color="#4ECDC4" />
-        <Text style={styles.fallbackTitle}>ML Segmentation Camera</Text>
+        <Ionicons name="videocam" size={64} color="#4ECDC4" />
+        <Text style={styles.fallbackTitle}>Professional Camera</Text>
         <Text style={styles.fallbackText}>
-          Person detection and background effects{'\n'}will work in the native build
+          Camera features will work{'\n'}in the native build
         </Text>
         {backgroundEffect !== 'none' && (
           <View style={styles.effectPreview}>
             <Text style={styles.effectPreviewTitle}>Selected Effect:</Text>
             <Text style={styles.effectPreviewText}>
-              {backgroundEffect === 'blur' ? 'Background Blur' : `Background Color: ${backgroundColor}`}
+              {backgroundEffect === 'blur' ? 'Professional Blur' : `Background: ${backgroundColor}`}
             </Text>
           </View>
         )}
@@ -126,8 +102,8 @@ function CameraFallback({ onCameraReady, backgroundEffect, backgroundColor, styl
   );
 }
 
-// Native Camera with ML Segmentation
-function NativeSegmentedCamera({
+// Native Camera Component
+function NativeCamera({
   facing,
   isActive = true,
   enableAudio = true,
@@ -147,8 +123,6 @@ function NativeSegmentedCamera({
   const cameraRef = useRef<any>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
-  const [segmentedImage, setSegmentedImage] = useState<string | null>(null);
-  const [segmentationActive, setSegmentationActive] = useState(false);
   const recordingStartTime = useRef<number>(0);
 
   // Camera hooks
@@ -156,66 +130,27 @@ function NativeSegmentedCamera({
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission?.() || {};
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission?.() || {};
 
-  // Check if segmentation is supported
-  const canUseSegmentation = getSelfieSegments && runOnJS && backgroundEffect !== 'none';
-
-  // Request permissions
+  // Request permissions on mount
   useEffect(() => {
     const getPermissions = async () => {
       try {
         if (!hasCameraPermission) await requestCameraPermission?.();
         if (!hasMicPermission) await requestMicPermission?.();
       } catch (error) {
-        console.error('[SegmentedCamera] Permission error:', error);
+        console.error('[Camera] Permission error:', error);
         onError?.(error as Error);
       }
     };
     getPermissions();
   }, []);
 
-  // Update segmented image from frame processor
-  const updateSegmentedImage = useCallback((imageBase64: string) => {
-    if (imageBase64) {
-      setSegmentedImage(`data:image/jpeg;base64,${imageBase64}`);
-      if (!segmentationActive) {
-        setSegmentationActive(true);
-      }
-    }
-  }, [segmentationActive]);
-
-  // Frame processor with ML segmentation
-  // Only created when segmentation is needed and supported
-  const frameProcessor = useFrameProcessor?.((frame: any) => {
-    'worklet';
-    
-    // Skip if no effect or plugin not available
-    if (!canUseSegmentation) {
-      return;
-    }
-    
-    try {
-      // Get segmented image
-      // Parameters: frame, backgroundColor, foregroundColor (optional)
-      // If foregroundColor is null, original person pixels are preserved
-      const bgColor = backgroundColor || '#222222';
-      const result = getSelfieSegments(frame, bgColor);
-      
-      if (result && runOnJS) {
-        runOnJS(updateSegmentedImage)(result);
-      }
-    } catch (error) {
-      // Silently handle errors to prevent crashes
-      console.log('[SegmentedCamera] Frame processing error');
-    }
-  }, [canUseSegmentation, backgroundColor, updateSegmentedImage]);
-
   const handleCameraReady = useCallback(() => {
-    console.log('[SegmentedCamera] Camera initialized');
+    console.log('[Camera] Initialized successfully');
     setIsCameraReady(true);
     onCameraReady?.();
   }, [onCameraReady]);
 
-  // Handle recording
+  // Handle recording state changes
   useEffect(() => {
     if (!cameraRef.current || !isCameraReady) return;
     
@@ -230,7 +165,7 @@ function NativeSegmentedCamera({
     if (!cameraRef.current || isRecordingInternal) return;
     
     try {
-      console.log('[SegmentedCamera] Starting recording...');
+      console.log('[Camera] Starting recording...');
       setIsRecordingInternal(true);
       recordingStartTime.current = Date.now();
       onRecordingStarted?.();
@@ -238,7 +173,7 @@ function NativeSegmentedCamera({
       cameraRef.current.startRecording({
         onRecordingFinished: (video: any) => {
           const duration = Math.floor((Date.now() - recordingStartTime.current) / 1000);
-          console.log('[SegmentedCamera] Recording finished:', video.path);
+          console.log('[Camera] Recording finished:', video.path);
           setIsRecordingInternal(false);
           onRecordingFinished?.({ 
             uri: `file://${video.path}`,
@@ -246,13 +181,13 @@ function NativeSegmentedCamera({
           });
         },
         onRecordingError: (error: any) => {
-          console.error('[SegmentedCamera] Recording error:', error);
+          console.error('[Camera] Recording error:', error);
           setIsRecordingInternal(false);
           onRecordingError?.(error);
         },
       });
     } catch (error) {
-      console.error('[SegmentedCamera] Start recording error:', error);
+      console.error('[Camera] Start recording error:', error);
       setIsRecordingInternal(false);
       onRecordingError?.(error as Error);
     }
@@ -264,24 +199,24 @@ function NativeSegmentedCamera({
     try {
       await cameraRef.current.stopRecording();
     } catch (error) {
-      console.error('[SegmentedCamera] Stop recording error:', error);
+      console.error('[Camera] Stop recording error:', error);
     }
   };
 
-  // Permission check
+  // Permission check UI
   if (hasCameraPermission === false || hasMicPermission === false) {
     return (
       <View style={[styles.container, style]}>
         <Ionicons name="camera-outline" size={48} color="#FF3B30" />
         <Text style={styles.errorTitle}>Camera Access Required</Text>
         <Text style={styles.errorText}>
-          Please enable camera and microphone in Settings
+          Please enable camera and microphone{'\n'}in your device Settings
         </Text>
       </View>
     );
   }
 
-  // No device
+  // No device available
   if (!device) {
     return (
       <View style={[styles.container, style]}>
@@ -293,7 +228,7 @@ function NativeSegmentedCamera({
 
   return (
     <View style={[styles.container, style]}>
-      {/* Camera feed */}
+      {/* Camera feed - full screen */}
       <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -301,23 +236,12 @@ function NativeSegmentedCamera({
         isActive={isActive}
         video={true}
         audio={enableAudio}
-        frameProcessor={canUseSegmentation ? frameProcessor : undefined}
-        frameProcessorFps={10}
         onInitialized={handleCameraReady}
         onError={(error: any) => {
-          console.error('[SegmentedCamera] Camera error:', error);
+          console.error('[Camera] Error:', error);
           onError?.(error);
         }}
       />
-      
-      {/* Segmented frame overlay - shows background replacement result */}
-      {segmentedImage && segmentationActive && backgroundEffect !== 'none' && (
-        <Image 
-          source={{ uri: segmentedImage }}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-        />
-      )}
       
       {/* Effect badges */}
       {showEffectBadges && isCameraReady && (
@@ -325,7 +249,7 @@ function NativeSegmentedCamera({
           {backgroundEffect === 'blur' && (
             <View style={[styles.badge, styles.bgBadge]}>
               <Ionicons name="eye-off" size={12} color="#fff" />
-              <Text style={styles.badgeText}>BG Blur</Text>
+              <Text style={styles.badgeText}>Blur Ready</Text>
             </View>
           )}
           
@@ -339,17 +263,9 @@ function NativeSegmentedCamera({
           {filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) && (
             <View style={[styles.badge, styles.filterBadge]}>
               <Ionicons name="color-wand" size={12} color="#fff" />
-              <Text style={styles.badgeText}>Touch-up</Text>
+              <Text style={styles.badgeText}>Polish</Text>
             </View>
           )}
-        </View>
-      )}
-      
-      {/* ML Processing indicator */}
-      {canUseSegmentation && isCameraReady && (
-        <View style={styles.mlIndicator}>
-          <Ionicons name="scan" size={14} color="#4ECDC4" />
-          <Text style={styles.mlIndicatorText}>ML {segmentationActive ? 'Active' : 'Starting'}</Text>
         </View>
       )}
       
@@ -365,7 +281,7 @@ function NativeSegmentedCamera({
       {!isCameraReady && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4ECDC4" />
-          <Text style={styles.loadingText}>Starting camera...</Text>
+          <Text style={styles.loadingText}>Preparing camera...</Text>
         </View>
       )}
     </View>
@@ -377,15 +293,15 @@ export default function SegmentedCameraView(props: SegmentedCameraViewProps) {
   if (!isNativeAvailable) {
     return <CameraFallback {...props} />;
   }
-  return <NativeSegmentedCamera {...props} />;
+  return <NativeCamera {...props} />;
 }
 
 export function useSegmentationFeatures() {
   return {
     isNativeAvailable,
-    supportsSegmentation: isNativeAvailable && !!getSelfieSegments,
-    supportsBackgroundBlur: isNativeAvailable && !!getSelfieSegments,
-    supportsBackgroundReplace: isNativeAvailable && !!getSelfieSegments,
+    supportsSegmentation: false, // ML segmentation not available in this version
+    supportsBackgroundBlur: isNativeAvailable,
+    supportsBackgroundReplace: isNativeAvailable,
   };
 }
 
@@ -446,6 +362,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 32,
+    lineHeight: 20,
   },
   badgeContainer: {
     position: 'absolute',
@@ -478,23 +395,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: '#fff',
-  },
-  mlIndicator: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    gap: 4,
-  },
-  mlIndicatorText: {
-    color: '#4ECDC4',
-    fontSize: 10,
-    fontWeight: '600',
   },
   recordingBadge: {
     position: 'absolute',
