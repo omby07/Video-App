@@ -216,11 +216,21 @@ export default function CameraScreen() {
   };
 
   const stopRecording = () => {
+    console.log('[Camera] stopRecording called, isRecording:', isRecording);
+    
     if (cameraRef.current && isRecording) {
-      cameraRef.current.stopRecording();
+      try {
+        console.log('[Camera] Calling stopRecording on cameraRef');
+        cameraRef.current.stopRecording();
+      } catch (error) {
+        console.error('[Camera] Error stopping recording:', error);
+      }
+      
       setIsRecording(false);
+      
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     }
   };
