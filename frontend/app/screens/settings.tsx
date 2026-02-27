@@ -364,4 +364,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
   },
+  processingInfo: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a1a',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 12,
+  },
+  processingInfoContent: {
+    flex: 1,
+  },
+  processingInfoTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  processingInfoText: {
+    color: '#888',
+    fontSize: 13,
+    lineHeight: 20,
+  },
 });
