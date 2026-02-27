@@ -1,163 +1,105 @@
-# Video Beautify - iOS Development Build Instructions
+# Video Beautify - iOS Local Build Instructions
 
-## Test on Your iPhone for FREE (No Apple Developer Account Required)
+## QUICK START (Copy & Paste Ready)
 
-This guide will help you build and run the app on your physical iPhone using Xcode with a free Apple ID.
+Open Terminal on your Mac and run these commands **one at a time**:
 
----
+### Step 1: Download Fresh Code from Emergent
+1. Click the **"Code"** button in the Emergent interface
+2. Select **"Download"** to get the latest version
+3. Unzip the downloaded file
+4. Open Terminal and navigate to the `frontend` folder:
+   ```bash
+   cd ~/Downloads/your-project-folder/frontend
+   ```
 
-## Prerequisites
-
-1. **Mac computer** with macOS Monterey or later
-2. **Xcode 15+** (free from App Store)
-3. **iPhone** running iOS 15 or later
-4. **USB cable** to connect iPhone to Mac
-5. **Apple ID** (free, regular account - NOT Developer account)
-
----
-
-## Step-by-Step Instructions
-
-### Step 1: Install Dependencies
-
-Open Terminal and navigate to the `frontend` folder:
+### Step 2: Complete Clean Build
+Run each command and wait for it to finish before running the next:
 
 ```bash
-cd frontend
+# 1. Remove old build artifacts
+rm -rf node_modules
+rm -rf ios
+rm -rf .expo
+
+# 2. Install fresh dependencies
 npm install
-```
 
-### Step 2: Install CocoaPods (if not installed)
-
-```bash
-sudo gem install cocoapods
-```
-
-### Step 3: Generate iOS Native Project
-
-This creates the native iOS project with all the ML and camera capabilities:
-
-```bash
+# 3. Generate iOS native project
 npx expo prebuild --platform ios --clean
-```
 
-Wait for this to complete (may take a few minutes).
+# 4. Install CocoaPods dependencies
+cd ios && pod install && cd ..
 
-### Step 4: Install iOS Dependencies
-
-```bash
-cd ios
-pod install
-cd ..
-```
-
-### Step 5: Open in Xcode
-
-```bash
+# 5. Open in Xcode
 open ios/VideoBeautify.xcworkspace
 ```
 
-**Important:** Open the `.xcworkspace` file, NOT the `.xcodeproj` file.
+---
 
-### Step 6: Configure Signing (One-time Setup)
+## In Xcode:
 
-1. In Xcode, click on the project name in the left sidebar (blue icon)
-2. Select the "VideoBeautify" target
-3. Go to the **"Signing & Capabilities"** tab
-4. Check ✅ **"Automatically manage signing"**
-5. For **Team**: Click the dropdown and select **"Add an Account..."**
+### First Time Setup (Signing)
+1. Click the **blue project icon** in the left sidebar
+2. Select **"VideoBeautify"** target
+3. Go to **"Signing & Capabilities"** tab
+4. Check **"Automatically manage signing"**
+5. Click **Team** dropdown → **"Add an Account..."**
 6. Sign in with your Apple ID
-7. Select your **"Personal Team"** (shows as "Your Name (Personal Team)")
+7. Select **"Your Name (Personal Team)"**
 
-If you see a "Change Bundle Identifier" dialog, click "OK".
+### Build & Run
+1. Connect your iPhone via USB cable
+2. In Xcode's top bar, click the device dropdown → Select your iPhone
+3. Click **Play ▶️** button (or press Cmd+R)
+4. Wait for build to complete (~3-5 minutes first time)
 
-### Step 7: Trust Your Developer Certificate on iPhone
+---
 
-**First time only:**
-1. Connect your iPhone via USB
-2. On iPhone: Go to **Settings → General → VPN & Device Management**
-3. Find your Apple ID under "Developer App"
-4. Tap it and tap **"Trust"**
-
-### Step 8: Build & Run
-
-1. Connect your iPhone to your Mac via USB
-2. In Xcode's top bar, click the device selector (shows "Any iOS Device")
-3. Select your iPhone from the list
-4. Click the **Play ▶️** button (or press Cmd+R)
-5. Wait for the build to complete (first build takes ~5 minutes)
-6. The app will install and launch on your iPhone!
+## Trust Certificate on iPhone (First Time Only)
+After first install, go to:
+**Settings → General → VPN & Device Management → Your Developer App → Trust**
 
 ---
 
 ## Troubleshooting
 
-### "Untrusted Developer" Error
-Go to iPhone Settings → General → VPN & Device Management → Trust your developer certificate
-
-### "Could not launch app" Error
-1. Disconnect and reconnect your iPhone
-2. In Xcode: Product → Clean Build Folder (Cmd+Shift+K)
-3. Try building again
-
-### "Signing requires a development team"
-Make sure you selected your Personal Team in Step 6
-
-### Build Fails with Pod Errors
+### "Could not resolve dependencies" or Pod errors
 ```bash
 cd ios
 pod deintegrate
+pod cache clean --all
 pod install
 cd ..
 ```
-Then try building again.
+
+### Build fails with signing errors
+- Make sure you selected your Personal Team
+- Try: Product → Clean Build Folder (Cmd+Shift+K) in Xcode
+
+### "Untrusted Developer" on iPhone
+Go to Settings → General → VPN & Device Management → Trust your certificate
+
+### Still having issues?
+1. Make sure Xcode is updated to latest version
+2. Make sure Command Line Tools are installed: `xcode-select --install`
+3. Try restarting your Mac
 
 ---
 
-## Important Notes
+## What This App Does (Current Version)
+- ✅ Video recording with front/back camera
+- ✅ Save videos to Photos library
+- ✅ Basic camera controls (flip, audio toggle)
+- ✅ Video preview before saving
 
-### Free Account Limitations:
-- **App expires after 7 days** - Just rebuild when it expires
-- **3 app limit** - You can only have 3 apps installed via free account
-- **Some capabilities restricted** - But camera + ML works fine!
-
-### What Works in This Build:
-- ✅ Real-time camera with ML segmentation
-- ✅ Background blur effect
-- ✅ Background color replacement  
-- ✅ Real-time beauty filters (brightness, contrast, saturation)
-- ✅ Video recording with effects
-- ✅ Save to Photos library
+**Note:** Background effects and touch-up filters are currently in preview mode. Full ML-powered effects will be added in a future update.
 
 ---
 
-## Quick Commands Reference
+## Free Apple ID Limitations
+- Apps expire after 7 days (just rebuild when needed)
+- Maximum 3 apps can be installed at once
+- Some advanced features may be restricted
 
-```bash
-# Install dependencies
-npm install
-
-# Generate iOS project
-npx expo prebuild --platform ios --clean
-
-# Install pods
-cd ios && pod install && cd ..
-
-# Open Xcode
-open ios/VideoBeautify.xcworkspace
-
-# Clean and rebuild (if issues)
-cd ios && pod deintegrate && pod install && cd ..
-```
-
----
-
-## Need Help?
-
-If you encounter issues:
-1. Make sure Xcode is fully updated
-2. Ensure your iPhone iOS version matches Xcode's supported versions
-3. Try restarting Xcode and your iPhone
-4. Run `pod install` again after any errors
-
-Enjoy testing your Video Beautify app! 🎥✨
+Enjoy testing! 🎥✨
