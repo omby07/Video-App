@@ -266,15 +266,19 @@ export default function InterviewModeScreen() {
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         
-        {/* Recording indicator */}
-        {isRecording && (
+        {/* Template badge or recording indicator */}
+        {isRecording ? (
           <View style={styles.recordingBadge}>
             <View style={styles.recordingDot} />
             <Text style={styles.recordingTime}>
               {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
             </Text>
           </View>
-        )}
+        ) : interviewTemplate ? (
+          <View style={styles.templateBadge}>
+            <Text style={styles.templateBadgeText}>{interviewTemplate.name}</Text>
+          </View>
+        ) : null}
         
         <TouchableOpacity style={styles.topButton} onPress={toggleCameraType}>
           <Ionicons name="camera-reverse" size={22} color="#fff" />
