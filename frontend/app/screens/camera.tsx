@@ -34,6 +34,7 @@ export default function CameraScreen() {
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const timerRef = useRef<any>(null);
