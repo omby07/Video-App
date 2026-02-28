@@ -92,4 +92,12 @@ export const useStore = create<AppState>((set) => ({
   setCameraType: (type) => set({ cameraType: type }),
   audioEnabled: true,
   setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
+  
+  // Interview Mode
+  interviewTemplate: null,
+  setInterviewTemplate: (template) => set({ interviewTemplate: template }),
+  currentPromptIndex: 0,
+  setCurrentPromptIndex: (index) => set({ currentPromptIndex: index }),
+  customPrompts: [],
+  setCustomPrompts: (prompts) => set({ customPrompts: prompts }),
 }));
