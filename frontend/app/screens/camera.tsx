@@ -486,6 +486,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
+  pauseButtonIcon: {
+    backgroundColor: 'rgba(255,179,71,0.2)',
+    borderColor: '#FFB347',
+  },
   bottomButtonText: {
     color: '#fff',
     fontSize: 11,
