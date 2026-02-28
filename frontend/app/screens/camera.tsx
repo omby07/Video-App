@@ -393,11 +393,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 8,
   },
+  recordingTimerPaused: {
+    backgroundColor: 'rgba(255,179,71,0.9)',
+  },
   recordingDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: '#fff',
+  },
+  recordingDotPaused: {
+    backgroundColor: '#000',
+  },
+  pausedText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   recordingTimerText: {
     color: '#fff',
