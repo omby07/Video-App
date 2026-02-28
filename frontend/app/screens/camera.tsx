@@ -201,6 +201,7 @@ export default function CameraScreen() {
         backgroundColor={selectedBackground?.value}
         filterSettings={filterSettings}
         isRecording={isRecording}
+        isPaused={isPaused}
         onCameraReady={handleCameraReady}
         onRecordingStarted={handleRecordingStarted}
         onRecordingFinished={handleRecordingFinished}
@@ -217,9 +218,10 @@ export default function CameraScreen() {
         
         {/* Recording Timer */}
         {isRecording && (
-          <View style={styles.recordingTimer}>
-            <View style={styles.recordingDot} />
+          <View style={[styles.recordingTimer, isPaused && styles.recordingTimerPaused]}>
+            <View style={[styles.recordingDot, isPaused && styles.recordingDotPaused]} />
             <Text style={styles.recordingTimerText}>{formatDuration(recordingDuration)}</Text>
+            {isPaused && <Text style={styles.pausedText}>PAUSED</Text>}
           </View>
         )}
         
