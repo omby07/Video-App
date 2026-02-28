@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { VideoMetadata, BackgroundImage, UserSettings, FilterSettings } from '../types';
+import { VideoMetadata, BackgroundImage, UserSettings, FilterSettings, InterviewTemplate, InterviewPrompt } from '../types';
 import { FILTER_PRESETS } from '../constants';
 
 interface AppState {
@@ -17,8 +17,8 @@ interface AppState {
   backgrounds: BackgroundImage[];
   setBackgrounds: (backgrounds: BackgroundImage[]) => void;
   addBackground: (background: BackgroundImage) => void;
-  selectedBackground: { type: string; value: string } | null;
-  setSelectedBackground: (bg: { type: string; value: string } | null) => void;
+  selectedBackground: { type: string; value: string; blurIntensity?: number; gradient?: string[]; name?: string } | null;
+  setSelectedBackground: (bg: { type: string; value: string; blurIntensity?: number; gradient?: string[]; name?: string } | null) => void;
   
   // Filters
   filterSettings: FilterSettings;
@@ -36,6 +36,14 @@ interface AppState {
   setCameraType: (type: 'front' | 'back') => void;
   audioEnabled: boolean;
   setAudioEnabled: (enabled: boolean) => void;
+  
+  // Interview Mode
+  interviewTemplate: InterviewTemplate | null;
+  setInterviewTemplate: (template: InterviewTemplate | null) => void;
+  currentPromptIndex: number;
+  setCurrentPromptIndex: (index: number) => void;
+  customPrompts: InterviewPrompt[];
+  setCustomPrompts: (prompts: InterviewPrompt[]) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
