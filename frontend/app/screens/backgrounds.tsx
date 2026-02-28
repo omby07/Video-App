@@ -13,31 +13,31 @@ import { useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Background options
+// Background options - Professional & Executive Polish
 const BLUR_OPTIONS = [
-  { id: 'light', name: 'Light Blur', intensity: 25 },
-  { id: 'medium', name: 'Medium Blur', intensity: 50 },
-  { id: 'strong', name: 'Strong Blur', intensity: 75 },
+  { id: 'subtle', name: 'Subtle Blur', intensity: 25 },
+  { id: 'professional', name: 'Professional', intensity: 50 },
+  { id: 'executive', name: 'Executive', intensity: 75 },
 ];
 
 const SOLID_COLORS = [
-  { id: 'white', name: 'White', color: '#FFFFFF' },
-  { id: 'cream', name: 'Cream', color: '#F5F5DC' },
+  { id: 'white', name: 'Clean White', color: '#FFFFFF' },
+  { id: 'cream', name: 'Warm Neutral', color: '#F5F5DC' },
   { id: 'lightgray', name: 'Light Gray', color: '#D3D3D3' },
-  { id: 'blue', name: 'Blue', color: '#4A90E2' },
+  { id: 'blue', name: 'Corporate Blue', color: '#4A90E2' },
   { id: 'navy', name: 'Navy', color: '#1E3A5F' },
-  { id: 'green', name: 'Green', color: '#2E8B57' },
-  { id: 'teal', name: 'Teal', color: '#4ECDC4' },
-  { id: 'black', name: 'Black', color: '#1a1a1a' },
+  { id: 'forest', name: 'Forest', color: '#2E5A4A' },
+  { id: 'teal', name: 'Modern Teal', color: '#4ECDC4' },
+  { id: 'charcoal', name: 'Charcoal', color: '#2D2D2D' },
 ];
 
 const PROFESSIONAL_GRADIENTS = [
   { id: 'office', name: 'Modern Office', colors: ['#2C3E50', '#34495E'] },
   { id: 'neutral', name: 'Neutral Wall', colors: ['#E8E8E8', '#D0D0D0'] },
   { id: 'corporate', name: 'Corporate Blue', colors: ['#1E3A5F', '#2C5282'] },
-  { id: 'startup', name: 'Startup Vibe', colors: ['#4ECDC4', '#556270'] },
-  { id: 'executive', name: 'Executive Gray', colors: ['#485563', '#29323C'] },
-  { id: 'warm', name: 'Warm Tone', colors: ['#8B7355', '#6B5344'] },
+  { id: 'startup', name: 'Tech Startup', colors: ['#4ECDC4', '#556270'] },
+  { id: 'executive', name: 'Executive Suite', colors: ['#485563', '#29323C'] },
+  { id: 'warm', name: 'Warm Professional', colors: ['#8B7355', '#6B5344'] },
 ];
 
 export default function BackgroundsScreen() {
