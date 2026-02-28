@@ -187,7 +187,7 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
 }
 `;
 
-// Objective-C registration code
+// Objective-C registration code - Uses VisionCamera v4 macro
 const OBJC_REGISTRATION_CODE = `//
 //  PersonSegmentationPluginRegistration.m
 //  VideoBeautify
@@ -203,19 +203,8 @@ const OBJC_REGISTRATION_CODE = `//
 #import <VideoBeautify/VideoBeautify-Swift.h>
 #endif
 
-@interface PersonSegmentationPluginRegistration : NSObject
-@end
-
-@implementation PersonSegmentationPluginRegistration
-
-+ (void)load {
-    [FrameProcessorPluginRegistry addFrameProcessorPlugin:@"segmentPerson"
-                                          withInitializer:^FrameProcessorPlugin* (VisionCameraProxyHolder* proxy, NSDictionary* options) {
-        return [[PersonSegmentationFrameProcessorPlugin alloc] initWithProxy:proxy withOptions:options];
-    }];
-}
-
-@end
+// VisionCamera v4 uses this macro for plugin registration
+VISION_EXPORT_SWIFT_FRAME_PROCESSOR(PersonSegmentationFrameProcessorPlugin, segmentPerson)
 `;
 
 function withPersonSegmentation(config) {
