@@ -13,16 +13,16 @@ import { useStore } from '../../src/store/useStore';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Import SegmentedCameraView for ML person segmentation
-let SegmentedCameraView: any = null;
-let useSegmentationFeatures: any = () => ({ isNativeAvailable: false, supportsSegmentation: false });
+// Import MLCameraView for ML-powered background segmentation
+let MLCameraView: any = null;
+let useMLCameraFeatures: any = () => ({ isNativeAvailable: false, isMLAvailable: false });
 
 try {
-  const cameraModule = require('../../src/components/SegmentedCameraView');
-  SegmentedCameraView = cameraModule.default;
-  useSegmentationFeatures = cameraModule.useSegmentationFeatures;
+  const cameraModule = require('../../src/components/MLCameraView');
+  MLCameraView = cameraModule.default;
+  useMLCameraFeatures = cameraModule.useMLCameraFeatures;
 } catch (e) {
-  console.log('[CameraScreen] SegmentedCameraView not available:', e);
+  console.log('[CameraScreen] MLCameraView not available:', e);
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
