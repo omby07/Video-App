@@ -177,7 +177,7 @@ function NativeMLCamera({
 
   // Native frame processor that calls the segmentation plugin
   // In VisionCamera v4, plugins registered via VISION_EXPORT_SWIFT_FRAME_PROCESSOR
-  // are available as global functions in worklets
+  // are available as global functions in worklets with __ prefix
   const frameProcessor = useFrameProcessor?.((frame: any) => {
     'worklet';
     
@@ -187,16 +187,17 @@ function NativeMLCamera({
     }
     
     try {
-      // Call the native plugin directly - it's registered globally
-      // @ts-ignore - segmentPerson is registered natively
-      const result = (global as any).segmentPerson(frame, {
-        effectType: backgroundEffect,
-        blurIntensity: blurIntensity,
-        backgroundColor: backgroundColor,
-      });
-      
-      // Result contains { success: boolean, effect: string }
-      // Frame is modified in-place by the plugin
+      // Call the native plugin directly - registered as __segmentPerson
+      // @ts-ignore - __segmentPerson is registered natively
+      const segmentPersonFn = (global as any).__segmentPerson;
+      if (segmentPersonFn) {
+        const result = segmentPersonFn(frame, {
+          effectType: backgroundEffect,
+          blurIntensity: blurIntensity,
+          backgroundColor: backgroundColor,
+        });
+        // Frame is modified in-place by the plugin
+      }
     } catch (e) {
       // Plugin not available or error - silently continue
     }
