@@ -95,31 +95,35 @@ export default function FiltersScreen() {
 
         {/* Quick Presets */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Presets</Text>
+          <Text style={styles.sectionTitle}>Professional Presets</Text>
           <View style={styles.presetGrid}>
             <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('natural')}>
               <View style={[styles.presetIcon, { backgroundColor: '#E8E4D9' }]}>
-                <Ionicons name="leaf" size={24} color="#8B7355" />
+                <Ionicons name="person" size={24} color="#8B7355" />
               </View>
               <Text style={styles.presetName}>Natural</Text>
+              <Text style={styles.presetHint}>No changes</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('warm')}>
               <View style={[styles.presetIcon, { backgroundColor: '#FFE4B5' }]}>
                 <Ionicons name="sunny" size={24} color="#FF8C00" />
               </View>
               <Text style={styles.presetName}>Warm</Text>
+              <Text style={styles.presetHint}>Friendly</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('cool')}>
               <View style={[styles.presetIcon, { backgroundColor: '#E0F0FF' }]}>
-                <Ionicons name="snow" size={24} color="#4A90E2" />
+                <Ionicons name="briefcase" size={24} color="#4A90E2" />
               </View>
-              <Text style={styles.presetName}>Cool</Text>
+              <Text style={styles.presetName}>Corporate</Text>
+              <Text style={styles.presetHint}>Clean</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.presetButton} onPress={() => applyPreset('vivid')}>
-              <View style={[styles.presetIcon, { backgroundColor: '#FFE0F0' }]}>
-                <Ionicons name="sparkles" size={24} color="#FF69B4" />
+              <View style={[styles.presetIcon, { backgroundColor: '#E8F5E9' }]}>
+                <Ionicons name="sparkles" size={24} color="#4CAF50" />
               </View>
-              <Text style={styles.presetName}>Vivid</Text>
+              <Text style={styles.presetName}>Polished</Text>
+              <Text style={styles.presetHint}>Stand out</Text>
             </TouchableOpacity>
           </View>
         </View>
