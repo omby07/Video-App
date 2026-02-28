@@ -176,8 +176,8 @@ export default function CameraScreen() {
 
   const bgInfo = getBackgroundDisplayInfo();
 
-  // Fallback if SegmentedCameraView isn't available
-  if (!SegmentedCameraView) {
+  // Fallback if MLCameraView isn't available
+  if (!MLCameraView) {
     return (
       <View style={styles.container}>
         <View style={styles.fallbackContainer}>
@@ -191,8 +191,8 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ML Segmented Camera View - Full Screen */}
-      <SegmentedCameraView
+      {/* ML Camera View - Full Screen with Background Segmentation */}
+      <MLCameraView
         facing={cameraType as 'front' | 'back'}
         isActive={true}
         enableAudio={audioEnabled}
