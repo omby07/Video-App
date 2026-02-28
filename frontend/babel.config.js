@@ -5,11 +5,11 @@ module.exports = function (api) {
     plugins: [
       // Worklets core plugin for frame processors
       ['react-native-worklets-core/plugin'],
-      // Reanimated plugin with segmentPerson as a global worklet function
+      // Reanimated plugin with segmentPerson as a worklet function
       [
         'react-native-reanimated/plugin',
         {
-          globals: ['__segmentPerson'],
+          globals: ['segmentPerson'],
         },
       ],
     ],
