@@ -215,7 +215,7 @@ export default function CameraScreen() {
         {/* Interview Mode */}
         <TouchableOpacity 
           style={[styles.sideButton, styles.interviewButton]} 
-          onPress={() => router.push('/screens/interview-mode')}
+          onPress={() => router.push('/screens/template-selection')}
         >
           <Ionicons name="briefcase" size={24} color="#4ECDC4" />
           <Text style={[styles.sideButtonText, { color: '#4ECDC4' }]}>Interview</Text>
