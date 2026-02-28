@@ -30,7 +30,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isNativeAvailable, supportsSegmentation } = useSegmentationFeatures();
+  const { isNativeAvailable, isMLAvailable } = useMLCameraFeatures();
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
