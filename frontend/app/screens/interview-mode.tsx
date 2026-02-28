@@ -48,15 +48,24 @@ export default function InterviewModeScreen() {
   const [audioLevel, setAudioLevel] = useState(0);
   const audioLevelRef = useRef<any>(null);
   
-  // Interview state
-  const [currentPrompt, setCurrentPrompt] = useState<InterviewPrompt>(DEFAULT_PROMPTS[0]);
+  // Interview state - use template from store if available
+  const { 
+    cameraType, 
+    setCameraType, 
+    userSettings, 
+    interviewTemplate, 
+    currentPromptIndex, 
+    setCurrentPromptIndex 
+  } = useStore();
+  
+  // Get prompts from template or use defaults
+  const prompts = interviewTemplate?.prompts || DEFAULT_PROMPTS;
+  const [currentPrompt, setCurrentPrompt] = useState<InterviewPrompt>(prompts[currentPromptIndex] || prompts[0]);
   const [isTeleprompterMinimized, setIsTeleprompterMinimized] = useState(false);
+  const [showConfidenceCues, setShowConfidenceCues] = useState(true);
   
   // UI state - simplified
   const [showOverlays, setShowOverlays] = useState(true);
-  
-  // Store
-  const { cameraType, setCameraType, userSettings } = useStore();
 
   // Request permissions on mount
   useEffect(() => {
