@@ -14,7 +14,11 @@ const { withXcodeProject, withDangerousMod, IOSConfig } = require('expo/config-p
 const fs = require('fs');
 const path = require('path');
 
-// Swift plugin code - VisionCamera v4 API
+// Swift plugin code - VisionCamera v4 API (CORRECT)
+// Key changes from broken version:
+// 1. Subclass FrameProcessorPlugin (not FrameProcessorPluginBase protocol - doesn't exist!)
+// 2. Override init(proxy:options:) and callback(_:withArguments:)
+// 3. Instance methods, not static methods
 const SWIFT_PLUGIN_CODE = `//
 //  PersonSegmentationPlugin.swift
 //  VideoBeautify
@@ -22,7 +26,7 @@ const SWIFT_PLUGIN_CODE = `//
 //  Native Frame Processor Plugin using Apple's Vision Framework
 //  for real-time person segmentation (background blur/replacement)
 //  
-//  VisionCamera v4 API - uses FrameProcessorPluginBase protocol
+//  VisionCamera v4 API - subclasses FrameProcessorPlugin class
 //
 
 import Foundation
@@ -32,48 +36,55 @@ import CoreImage
 import AVFoundation
 import Metal
 
-// Shared resources for performance
-private var segmentationRequest: VNGeneratePersonSegmentationRequest = {
-    let request = VNGeneratePersonSegmentationRequest()
-    request.qualityLevel = .balanced
-    request.outputPixelFormat = kCVPixelFormatType_OneComponent8
-    return request
-}()
-
-private var ciContext: CIContext = {
-    if let metalDevice = MTLCreateSystemDefaultDevice() {
-        return CIContext(mtlDevice: metalDevice, options: [
-            .cacheIntermediates: false,
-            .allowLowPower: true
-        ])
-    } else {
-        return CIContext(options: [.useSoftwareRenderer: false])
-    }
-}()
-
 @objc(PersonSegmentationFrameProcessorPlugin)
-public class PersonSegmentationFrameProcessorPlugin: NSObject, FrameProcessorPluginBase {
+public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
     
-    @objc public static func callback(_ frame: Frame!, withArgs args: [Any]!) -> Any! {
-        // Parse arguments
-        guard let argsDict = args.first as? [String: Any] else {
-            return ["error": "No arguments"]
+    // Shared resources for performance
+    private var segmentationRequest: VNGeneratePersonSegmentationRequest
+    private var ciContext: CIContext
+    
+    // REQUIRED: VisionCamera v4 init method
+    public override init(proxy: VisionCameraProxyHolder, options: [AnyHashable: Any]! = [:]) {
+        // Initialize segmentation request
+        self.segmentationRequest = VNGeneratePersonSegmentationRequest()
+        self.segmentationRequest.qualityLevel = .balanced
+        self.segmentationRequest.outputPixelFormat = kCVPixelFormatType_OneComponent8
+        
+        // Initialize Core Image context with Metal for performance
+        if let metalDevice = MTLCreateSystemDefaultDevice() {
+            self.ciContext = CIContext(mtlDevice: metalDevice, options: [
+                .cacheIntermediates: false,
+                .allowLowPower: true
+            ])
+        } else {
+            self.ciContext = CIContext(options: [.useSoftwareRenderer: false])
         }
         
-        let effectType = argsDict["effectType"] as? String ?? "none"
+        super.init(proxy: proxy, options: options)
+        print("[PersonSegmentation] Plugin initialized")
+    }
+    
+    // REQUIRED: VisionCamera v4 callback method
+    public override func callback(_ frame: Frame, withArguments arguments: [AnyHashable: Any]?) -> Any? {
+        // Parse arguments from JavaScript
+        guard let args = arguments else {
+            return nil
+        }
+        
+        let effectType = args["effectType"] as? String ?? "none"
         if effectType == "none" {
             return nil
         }
         
-        let blurIntensity = argsDict["blurIntensity"] as? Double ?? 50.0
-        let backgroundColor = argsDict["backgroundColor"] as? String ?? "#222222"
+        let blurIntensity = args["blurIntensity"] as? Double ?? 50.0
+        let backgroundColor = args["backgroundColor"] as? String ?? "#222222"
         
         // Get pixel buffer from frame
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer) else {
             return ["error": "No pixel buffer"]
         }
         
-        // Lock pixel buffer
+        // Lock pixel buffer for processing
         CVPixelBufferLockBaseAddress(pixelBuffer, CVPixelBufferLockFlags(rawValue: 0))
         defer {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, CVPixelBufferLockFlags(rawValue: 0))
@@ -87,10 +98,10 @@ public class PersonSegmentationFrameProcessorPlugin: NSObject, FrameProcessorPlu
         
         do {
             // Perform person segmentation
-            try requestHandler.perform([segmentationRequest])
+            try requestHandler.perform([self.segmentationRequest])
             
-            guard let result = segmentationRequest.results?.first else {
-                return ["error": "No segmentation result"]
+            guard let result = self.segmentationRequest.results?.first else {
+                return nil
             }
             
             let maskPixelBuffer = result.pixelBuffer
@@ -104,6 +115,7 @@ public class PersonSegmentationFrameProcessorPlugin: NSObject, FrameProcessorPlu
             var outputImage: CIImage
             
             if effectType == "blur" {
+                // Background blur effect
                 let blurRadius = (blurIntensity / 100.0) * 30.0
                 let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius).cropped(to: ciImage.extent)
                 
@@ -114,7 +126,8 @@ public class PersonSegmentationFrameProcessorPlugin: NSObject, FrameProcessorPlu
                 ])
                 
             } else if effectType == "color" {
-                let bgColor = parseHexColor(backgroundColor)
+                // Background color replacement
+                let bgColor = self.parseHexColor(backgroundColor)
                 let colorImage = CIImage(color: bgColor).cropped(to: ciImage.extent)
                 
                 // Composite: person over solid color
@@ -124,20 +137,22 @@ public class PersonSegmentationFrameProcessorPlugin: NSObject, FrameProcessorPlu
                 ])
                 
             } else {
-                return ["error": "Unknown effect"]
+                return nil
             }
             
-            // Render back to pixel buffer
-            ciContext.render(outputImage, to: pixelBuffer)
+            // Render processed image back to pixel buffer (in-place modification)
+            self.ciContext.render(outputImage, to: pixelBuffer)
             
-            return ["success": true, "effect": effectType]
+            return nil  // Frame is modified in-place
             
         } catch {
-            return ["error": error.localizedDescription]
+            print("[PersonSegmentation] Error: \\(error.localizedDescription)")
+            return nil
         }
     }
     
-    private static func parseHexColor(_ hex: String) -> CIColor {
+    // Helper: Parse hex color string to CIColor
+    private func parseHexColor(_ hex: String) -> CIColor {
         var hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if hexString.hasPrefix("#") {
             hexString.remove(at: hexString.startIndex)
