@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Components
 import Teleprompter from '../../src/components/Teleprompter';
 import EnergyMeter from '../../src/components/EnergyMeter';
-import InterviewTimer from '../../src/components/InterviewTimer';
 import RetakeControl from '../../src/components/RetakeControl';
 import ConfidenceCueDisplay from '../../src/components/ConfidenceCue';
 
