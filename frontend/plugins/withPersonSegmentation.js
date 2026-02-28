@@ -52,10 +52,11 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
         let blurIntensity = arguments?["blurIntensity"] as? Double ?? 50.0
         let backgroundColor = arguments?["backgroundColor"] as? String ?? "#222222"
         
-        guard effectType != "none" else { return nil }
+        if effectType == "none" { return nil }
         
-        // Get pixel buffer from frame
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer) else {
+        // Get pixel buffer from frame - CMSampleBufferGetImageBuffer returns CVImageBuffer?
+        let pixelBufferOptional: CVPixelBuffer? = CMSampleBufferGetImageBuffer(frame.buffer)
+        guard let pixelBuffer = pixelBufferOptional else {
             return ["success": false, "error": "No pixel buffer"]
         }
         
@@ -68,10 +69,11 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
         do {
             try handler.perform([segmentationRequest])
             
-            guard let result = segmentationRequest.results?.first,
-                  let maskPixelBuffer = result.pixelBuffer else {
+            guard let result = segmentationRequest.results?.first else {
                 return ["success": false, "error": "No segmentation result"]
             }
+            
+            let maskPixelBuffer = result.pixelBuffer
             
             // Create mask CIImage and scale to match frame
             let maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
@@ -85,9 +87,7 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
                 // Apply blur to background only
                 let blurRadius = (blurIntensity / 100.0) * 30.0
                 
-                guard let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius) else {
-                    return ["success": false, "error": "Blur failed"]
-                }
+                let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius)
                 
                 // Composite: sharp person over blurred background using mask
                 outputImage = blurredImage.applyingFilter("CIBlendWithMask", parameters: [
