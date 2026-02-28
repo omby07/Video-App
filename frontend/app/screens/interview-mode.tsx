@@ -312,6 +312,14 @@ export default function InterviewModeScreen() {
         </View>
       )}
 
+      {/* Confidence Cues - Subtle coaching during recording */}
+      {showConfidenceCues && (
+        <ConfidenceCueDisplay 
+          isRecording={isRecording} 
+          intervalSeconds={15}
+        />
+      )}
+
       {/* Bottom Controls */}
       <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 12 }]}>
         {/* Retake Control - Only during recording */}
