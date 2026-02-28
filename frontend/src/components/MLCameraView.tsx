@@ -1,18 +1,16 @@
 /**
  * MLCameraView - Professional Camera with Real ML Background Effects
  * 
- * Uses TFLite + MediaPipe selfie_segmenter for real-time person segmentation.
- * This enables Zoom-like background blur and replacement effects.
+ * Uses Apple's Vision framework (VNGeneratePersonSegmentationRequest) via
+ * a native frame processor plugin for real-time person segmentation.
  * 
- * Key Features:
- * - Real-time person segmentation using on-device ML
+ * This enables Zoom-like background blur and replacement effects:
  * - Background blur (only background, person stays sharp)
  * - Background color replacement
  * - Touch-up filters (brightness, contrast, saturation)
- * - Pause/resume recording
  */
 
-import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -62,12 +60,13 @@ let Camera: any = null;
 let useCameraDevice: any = null;
 let useCameraPermission: any = null;
 let useMicrophonePermission: any = null;
-let useSkiaFrameProcessor: any = null;
-let useTensorflowModel: any = null;
-let useResizePlugin: any = null;
-let Skia: any = null;
+let useFrameProcessor: any = null;
+let VisionCameraProxy: any = null;
 let isNativeAvailable = false;
-let isMLAvailable = false;
+let hasSegmentationPlugin = false;
+
+// Try to get the native segmentation plugin
+let segmentPersonPlugin: any = null;
 
 if (Platform.OS !== 'web') {
   try {
@@ -77,29 +76,23 @@ if (Platform.OS !== 'web') {
     useCameraDevice = VisionCamera.useCameraDevice;
     useCameraPermission = VisionCamera.useCameraPermission;
     useMicrophonePermission = VisionCamera.useMicrophonePermission;
-    useSkiaFrameProcessor = VisionCamera.useSkiaFrameProcessor;
+    useFrameProcessor = VisionCamera.useFrameProcessor;
+    VisionCameraProxy = VisionCamera.VisionCameraProxy;
     
     isNativeAvailable = true;
     console.log('[MLCamera] Vision Camera loaded');
     
-    // ML modules
+    // Try to get the native segmentation plugin
     try {
-      const TFLite = require('react-native-fast-tflite');
-      useTensorflowModel = TFLite.useTensorflowModel;
-      console.log('[MLCamera] TFLite loaded');
-      
-      const ResizePlugin = require('vision-camera-resize-plugin');
-      useResizePlugin = ResizePlugin.useResizePlugin;
-      console.log('[MLCamera] Resize plugin loaded');
-      
-      const SkiaModule = require('@shopify/react-native-skia');
-      Skia = SkiaModule.Skia;
-      console.log('[MLCamera] Skia loaded');
-      
-      isMLAvailable = true;
-      console.log('[MLCamera] ML stack fully loaded!');
+      if (VisionCameraProxy) {
+        segmentPersonPlugin = VisionCameraProxy.initFrameProcessorPlugin('segmentPerson', {});
+        if (segmentPersonPlugin) {
+          hasSegmentationPlugin = true;
+          console.log('[MLCamera] Native segmentation plugin loaded!');
+        }
+      }
     } catch (e) {
-      console.log('[MLCamera] ML modules not available:', e);
+      console.log('[MLCamera] Native segmentation plugin not available:', e);
     }
   } catch (e) {
     console.log('[MLCamera] Native modules not available:', e);
@@ -156,35 +149,15 @@ function NativeMLCamera({
   const cameraRef = useRef<any>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecordingInternal, setIsRecordingInternal] = useState(false);
-  const [mlStatus, setMLStatus] = useState<'loading' | 'ready' | 'processing' | 'error'>('loading');
+  const [mlStatus, setMLStatus] = useState<'ready' | 'processing' | 'unavailable'>(
+    hasSegmentationPlugin ? 'ready' : 'unavailable'
+  );
   const recordingStartTime = useRef<number>(0);
 
   // Camera hooks
   const device = useCameraDevice?.(facing);
   const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission?.() || {};
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission?.() || {};
-
-  // Load TFLite model for segmentation
-  const tfModel = useTensorflowModel?.(require('../../assets/selfie_segmenter.tflite'));
-  const model = tfModel?.model;
-  const modelState = tfModel?.state;
-  
-  // Resize plugin for frame preprocessing
-  const resizePlugin = useResizePlugin?.();
-  const resize = resizePlugin?.resize;
-
-  // Track model loading status
-  useEffect(() => {
-    if (modelState === 'loaded' && model) {
-      setMLStatus('ready');
-      onMLStatusChange?.({ isLoaded: true, isProcessing: false });
-      console.log('[MLCamera] Model loaded successfully');
-    } else if (modelState === 'error') {
-      setMLStatus('error');
-      onMLStatusChange?.({ isLoaded: false, isProcessing: false });
-      console.log('[MLCamera] Model failed to load');
-    }
-  }, [modelState, model]);
 
   // Request permissions
   useEffect(() => {
@@ -204,83 +177,34 @@ function NativeMLCamera({
     console.log('[MLCamera] Camera initialized');
     setIsCameraReady(true);
     onCameraReady?.();
-  }, [onCameraReady]);
+    onMLStatusChange?.({ isLoaded: hasSegmentationPlugin, isProcessing: false });
+  }, [onCameraReady, onMLStatusChange]);
 
-  // Memoize config for frame processor
-  const processorConfig = useMemo(() => ({
-    effect: backgroundEffect,
-    blurIntensity,
-    bgColor: backgroundColor,
-    brightness: filterSettings?.brightness || 0,
-    contrast: filterSettings?.contrast || 0,
-    saturation: filterSettings?.saturation || 0,
-  }), [backgroundEffect, blurIntensity, backgroundColor, filterSettings]);
-
-  // Create Skia frame processor with ML segmentation
-  const frameProcessor = useSkiaFrameProcessor?.((frame: any) => {
+  // Native frame processor that calls the segmentation plugin
+  const frameProcessor = useFrameProcessor?.((frame: any) => {
     'worklet';
     
-    // If no effect or model not ready, just render
-    if (processorConfig.effect === 'none' || !model || !resize) {
-      frame.render();
+    // Skip if no effect or plugin not available
+    if (backgroundEffect === 'none' || !segmentPersonPlugin) {
       return;
     }
     
     try {
-      // 1. Resize frame for model input (256x256)
-      const resizedFrame = resize(frame, {
-        scale: {
-          width: 256,
-          height: 256,
-        },
-        pixelFormat: 'rgb',
-        dataType: 'uint8',
+      // Call native segmentation plugin
+      const result = segmentPersonPlugin.call(frame, {
+        effectType: backgroundEffect,
+        blurIntensity: blurIntensity,
+        backgroundColor: backgroundColor,
       });
       
-      // 2. Run segmentation model
-      const outputs = model.runSync([resizedFrame]);
-      const mask = outputs[0]; // Segmentation mask
-      
-      // 3. Render original frame first
-      frame.render();
-      
-      // 4. Apply effect based on mask
-      // The mask contains values where higher = person, lower = background
-      
-      if (processorConfig.effect === 'blur') {
-        // Apply Gaussian blur to background
-        // Scale intensity: 0-100 -> 0-25 sigma
-        const sigma = (processorConfig.blurIntensity / 100) * 25;
-        
-        if (Skia && sigma > 0) {
-          const paint = Skia.Paint();
-          const blurFilter = Skia.ImageFilter.MakeBlur(
-            sigma,
-            sigma,
-            Skia.TileMode.Clamp,
-            null
-          );
-          paint.setImageFilter(blurFilter);
-          
-          // Note: Full implementation would use mask to selectively apply blur
-          // This requires converting mask to shader and compositing
-        }
-      } else if (processorConfig.effect === 'color') {
-        // Replace background with solid color
-        if (Skia) {
-          const paint = Skia.Paint();
-          paint.setColor(Skia.Color(processorConfig.bgColor));
-          
-          // Note: Full implementation would draw color where mask < threshold
-          // then composite person layer on top
-        }
+      // Result contains { success: boolean, effect: string }
+      if (result?.success) {
+        // Frame has been modified in-place by the plugin
       }
-      
     } catch (e) {
-      // On error, just render the frame normally
-      frame.render();
+      // Silently handle errors
     }
-  }, [model, resize, processorConfig]);
+  }, [backgroundEffect, blurIntensity, backgroundColor]);
 
   // Handle recording
   useEffect(() => {
@@ -357,15 +281,12 @@ function NativeMLCamera({
     );
   }
 
-  // Use frame processor only when effect is enabled and model is ready
-  const shouldUseProcessor = isMLAvailable && 
-    backgroundEffect !== 'none' && 
-    mlStatus === 'ready' && 
-    useSkiaFrameProcessor;
+  // Use frame processor only when effect is enabled and plugin is available
+  const shouldUseProcessor = hasSegmentationPlugin && backgroundEffect !== 'none';
 
   return (
     <View style={[styles.container, style]}>
-      {/* Camera with ML frame processor */}
+      {/* Camera with native ML frame processor */}
       <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -386,20 +307,20 @@ function NativeMLCamera({
       {showEffectBadges && isCameraReady && backgroundEffect !== 'none' && (
         <View style={styles.mlStatusBadge}>
           <Ionicons 
-            name={mlStatus === 'ready' ? 'checkmark-circle' : mlStatus === 'loading' ? 'hourglass' : 'alert-circle'} 
+            name={hasSegmentationPlugin ? 'checkmark-circle' : 'alert-circle'} 
             size={14} 
-            color={mlStatus === 'ready' ? '#4ECDC4' : mlStatus === 'loading' ? '#FFB347' : '#FF3B30'} 
+            color={hasSegmentationPlugin ? '#4ECDC4' : '#FF3B30'} 
           />
           <Text style={[styles.mlStatusText, { 
-            color: mlStatus === 'ready' ? '#4ECDC4' : mlStatus === 'loading' ? '#FFB347' : '#FF3B30' 
+            color: hasSegmentationPlugin ? '#4ECDC4' : '#FF3B30' 
           }]}>
-            {mlStatus === 'ready' ? 'ML Active' : mlStatus === 'loading' ? 'Loading ML...' : 'ML Error'}
+            {hasSegmentationPlugin ? 'ML Active' : 'ML Unavailable'}
           </Text>
         </View>
       )}
       
       {/* Effect Badge */}
-      {showEffectBadges && isCameraReady && backgroundEffect !== 'none' && mlStatus === 'ready' && (
+      {showEffectBadges && isCameraReady && backgroundEffect !== 'none' && hasSegmentationPlugin && (
         <View style={styles.effectBadge}>
           <Ionicons name={backgroundEffect === 'blur' ? 'eye-off' : 'color-palette'} size={12} color="#fff" />
           <Text style={styles.effectBadgeText}>
@@ -446,10 +367,10 @@ export default function MLCameraView(props: MLCameraViewProps) {
 export function useMLCameraFeatures() {
   return {
     isNativeAvailable,
-    isMLAvailable,
-    supportsSegmentation: isMLAvailable,
-    supportsBackgroundBlur: isMLAvailable,
-    supportsBackgroundReplace: isMLAvailable,
+    hasSegmentationPlugin,
+    supportsSegmentation: hasSegmentationPlugin,
+    supportsBackgroundBlur: hasSegmentationPlugin,
+    supportsBackgroundReplace: hasSegmentationPlugin,
     supportsTouchUp: isNativeAvailable,
   };
 }
