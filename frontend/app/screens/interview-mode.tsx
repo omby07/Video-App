@@ -470,6 +470,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+  templateBadge: {
+    backgroundColor: 'rgba(78,205,196,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  templateBadgeText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   timerContainer: {
     position: 'absolute',
     top: 90,
