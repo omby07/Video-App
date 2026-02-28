@@ -195,8 +195,8 @@ const OBJC_REGISTRATION_CODE = `//
 
 // VisionCamera v4 registration macro:
 // First param: Swift class name (must match @objc(Name) in Swift)
-// Second param: JS function name as a STRING
-VISION_EXPORT_SWIFT_FRAME_PROCESSOR(PersonSegmentationFrameProcessorPlugin, "segmentPerson")
+// Second param: JS function name (NO QUOTES - it's a token, not a string!)
+VISION_EXPORT_SWIFT_FRAME_PROCESSOR(PersonSegmentationFrameProcessorPlugin, segmentPerson)
 `;
 
 function withPersonSegmentation(config) {
