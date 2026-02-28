@@ -274,19 +274,31 @@ export default function CameraScreen() {
 
       {/* Bottom Controls */}
       <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 20 }]}>
-        {/* Background Button */}
-        <TouchableOpacity 
-          style={styles.bottomButton} 
-          onPress={() => router.push('/screens/backgrounds')}
-          disabled={isRecording}
-        >
-          <View style={[styles.bottomButtonIcon, bgInfo && { borderColor: '#4ECDC4' }]}>
-            <Ionicons name="image-outline" size={22} color={bgInfo ? "#4ECDC4" : "#fff"} />
-          </View>
-          <Text style={styles.bottomButtonText}>Background</Text>
-        </TouchableOpacity>
+        {/* Background Button - hidden during recording */}
+        {!isRecording ? (
+          <TouchableOpacity 
+            style={styles.bottomButton} 
+            onPress={() => router.push('/screens/backgrounds')}
+          >
+            <View style={[styles.bottomButtonIcon, bgInfo && { borderColor: '#4ECDC4' }]}>
+              <Ionicons name="image-outline" size={22} color={bgInfo ? "#4ECDC4" : "#fff"} />
+            </View>
+            <Text style={styles.bottomButtonText}>Background</Text>
+          </TouchableOpacity>
+        ) : (
+          /* Pause/Resume Button - shown during recording */
+          <TouchableOpacity 
+            style={styles.bottomButton} 
+            onPress={togglePause}
+          >
+            <View style={[styles.bottomButtonIcon, styles.pauseButtonIcon]}>
+              <Ionicons name={isPaused ? "play" : "pause"} size={22} color="#FFB347" />
+            </View>
+            <Text style={styles.bottomButtonText}>{isPaused ? "Resume" : "Pause"}</Text>
+          </TouchableOpacity>
+        )}
 
-        {/* Record Button */}
+        {/* Record/Stop Button */}
         <TouchableOpacity
           style={[styles.recordButton, isRecording && styles.recordButtonActive]}
           onPress={toggleRecording}
@@ -299,24 +311,33 @@ export default function CameraScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Filters Button */}
-        <TouchableOpacity 
-          style={styles.bottomButton} 
-          onPress={() => router.push('/screens/filters')}
-          disabled={isRecording}
-        >
-          <View style={[
-            styles.bottomButtonIcon, 
-            filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) && { borderColor: '#FFB347' }
-          ]}>
-            <Ionicons 
-              name="sparkles-outline" 
-              size={22} 
-              color={filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) ? "#FFB347" : "#fff"} 
-            />
+        {/* Touch-up Button - hidden during recording */}
+        {!isRecording ? (
+          <TouchableOpacity 
+            style={styles.bottomButton} 
+            onPress={() => router.push('/screens/filters')}
+          >
+            <View style={[
+              styles.bottomButtonIcon, 
+              filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) && { borderColor: '#FFB347' }
+            ]}>
+              <Ionicons 
+                name="sparkles-outline" 
+                size={22} 
+                color={filterSettings && (filterSettings.brightness !== 0 || filterSettings.smoothing > 0) ? "#FFB347" : "#fff"} 
+              />
+            </View>
+            <Text style={styles.bottomButtonText}>Touch-up</Text>
+          </TouchableOpacity>
+        ) : (
+          /* Placeholder to keep record button centered */
+          <View style={styles.bottomButton}>
+            <View style={[styles.bottomButtonIcon, { opacity: 0.3 }]}>
+              <Ionicons name="refresh" size={22} color="#888" />
+            </View>
+            <Text style={[styles.bottomButtonText, { opacity: 0.3 }]}>Retake</Text>
           </View>
-          <Text style={styles.bottomButtonText}>Touch-up</Text>
-        </TouchableOpacity>
+        )}
       </View>
 
       {/* Camera Loading */}
