@@ -28,6 +28,7 @@ import Vision
 import VisionCamera
 import CoreImage
 import AVFoundation
+import Metal
 
 @objc(PersonSegmentationFrameProcessorPlugin)
 public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
