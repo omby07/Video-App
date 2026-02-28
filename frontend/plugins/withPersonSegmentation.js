@@ -270,6 +270,7 @@ function withPersonSegmentation(config) {
     try {
       xcodeProject.addFramework('Vision.framework');
       xcodeProject.addFramework('CoreImage.framework');
+      xcodeProject.addFramework('Metal.framework');
       console.log('[PersonSegmentation] Added frameworks');
     } catch (e) {
       console.log('[PersonSegmentation] Frameworks already added');
