@@ -73,6 +73,7 @@ export default function CameraScreen() {
   const handleRecordingStarted = useCallback(() => {
     console.log('[CameraScreen] Recording started');
     setRecordingDuration(0);
+    setIsPaused(false);
     timerRef.current = setInterval(() => {
       setRecordingDuration(prev => {
         const newDuration = prev + 1;
@@ -91,6 +92,7 @@ export default function CameraScreen() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    setIsPaused(false);
     
     // Navigate to preview
     router.push({
@@ -109,6 +111,7 @@ export default function CameraScreen() {
       timerRef.current = null;
     }
     setIsRecording(false);
+    setIsPaused(false);
     Alert.alert('Recording Error', error.message || 'Failed to record video');
   }, []);
 
@@ -117,8 +120,34 @@ export default function CameraScreen() {
       Alert.alert('Camera not ready', 'Please wait for the camera to initialize');
       return;
     }
-    setIsRecording(prev => !prev);
-  }, [isCameraReady]);
+    if (isRecording) {
+      // Stop recording
+      setIsRecording(false);
+      setIsPaused(false);
+    } else {
+      // Start recording
+      setIsRecording(true);
+      setIsPaused(false);
+    }
+  }, [isCameraReady, isRecording]);
+
+  const togglePause = useCallback(() => {
+    if (!isRecording) return;
+    
+    if (isPaused) {
+      // Resume - restart timer
+      timerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      // Pause - stop timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    setIsPaused(!isPaused);
+  }, [isRecording, isPaused]);
 
   const toggleCamera = useCallback(() => {
     setCameraType(cameraType === 'back' ? 'front' : 'back');
