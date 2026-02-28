@@ -253,10 +253,30 @@ export default function ExportOptions({
 
           {/* ATS Tip */}
           <View style={styles.tipBox}>
-            <Ionicons name="bulb-outline" size={18} color="#FFB347" />
+            <Ionicons name="rocket-outline" size={18} color="#FFB347" />
             <Text style={styles.tipText}>
-              Tip: Use the shareable link in job applications. Recruiters can view your video without downloading.
+              Pro tip: Include your shareable link in job applications. Recruiters can watch instantly without downloading - you'll see when they view it.
             </Text>
+          </View>
+          
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => {
+                if (shareableLink) {
+                  handleShareLink();
+                } else {
+                  handleCreateShareableLink();
+                }
+              }}
+            >
+              <Ionicons name="paper-plane" size={18} color="#4ECDC4" />
+              <Text style={styles.quickActionText}>
+                {shareableLink ? 'Send to Recruiter' : 'Create & Send Link'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
