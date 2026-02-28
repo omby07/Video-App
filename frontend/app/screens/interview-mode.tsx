@@ -285,18 +285,6 @@ export default function InterviewModeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Timer - Compact, only shows when not recording or overlays visible */}
-      {showOverlays && !isRecording && (
-        <View style={styles.timerContainer}>
-          <InterviewTimer
-            duration={recordingDuration}
-            suggestedDuration={currentPrompt.suggestedDuration}
-            isRecording={isRecording}
-          />
-        </View>
-      )}
-
-      {/* Teleprompter - Collapsible */}
       {/* Teleprompter - Collapsible */}
       {showOverlays && (
         <View style={[styles.teleprompterContainer, isRecording && styles.teleprompterRecording]}>
