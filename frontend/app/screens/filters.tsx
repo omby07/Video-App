@@ -372,6 +372,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  presetHint: {
+    color: '#666',
+    fontSize: 10,
+    marginTop: 2,
+  },
   sliderContainer: {
     marginBottom: 28,
   },
