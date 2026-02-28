@@ -92,7 +92,7 @@ export default function BackgroundsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Backgrounds</Text>
+        <Text style={styles.headerTitle}>Professional Polish</Text>
         <View style={{ width: 40 }} />
       </View>
 
