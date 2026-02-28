@@ -69,8 +69,8 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
         }
         
         // Get effect parameters
-        guard let effectType = arguments?["effectType"] as? String,
-              effectType != "none" else {
+        let effectType = arguments?["effectType"] as? String ?? "none"
+        if effectType == "none" {
             return nil
         }
         
@@ -80,8 +80,9 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
         isProcessing = true
         defer { isProcessing = false }
         
-        // Get pixel buffer from frame
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(frame.buffer) else {
+        // Get pixel buffer from frame - this CAN return nil
+        let pixelBufferOpt: CVPixelBuffer? = CMSampleBufferGetImageBuffer(frame.buffer)
+        guard let pixelBuffer = pixelBufferOpt else {
             return ["error": "No pixel buffer"]
         }
         
@@ -91,7 +92,7 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, CVPixelBufferLockFlags(rawValue: 0))
         }
         
-        // Create CIImage from pixel buffer
+        // Create CIImage from pixel buffer (non-optional return)
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         
         // Create Vision request handler
@@ -106,10 +107,12 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
             try requestHandler.perform([request])
             
             // Get the segmentation mask
-            guard let result = request.results?.first,
-                  let maskPixelBuffer = result.pixelBuffer else {
+            guard let result = request.results?.first else {
                 return ["error": "No segmentation result"]
             }
+            
+            // Get mask pixel buffer (non-optional property)
+            let maskPixelBuffer = result.pixelBuffer
             
             // Create mask CIImage and scale to match frame size
             var maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
@@ -124,11 +127,9 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
                 // Calculate blur radius (0-100 -> 0-30 sigma)
                 let blurRadius = (blurIntensity / 100.0) * 30.0
                 
-                // Create blurred version of the image
-                guard let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius)
-                    .cropped(to: ciImage.extent) else {
-                    return ["error": "Blur failed"]
-                }
+                // Create blurred version of the image (non-optional return)
+                let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius)
+                    .cropped(to: ciImage.extent)
                 
                 // Composite: Use mask to blend sharp person over blurred background
                 // Mask: white = person (use original), black = background (use blurred)
