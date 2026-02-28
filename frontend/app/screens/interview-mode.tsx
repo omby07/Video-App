@@ -297,6 +297,7 @@ export default function InterviewModeScreen() {
       )}
 
       {/* Teleprompter - Collapsible */}
+      {/* Teleprompter - Collapsible */}
       {showOverlays && (
         <View style={[styles.teleprompterContainer, isRecording && styles.teleprompterRecording]}>
           <Teleprompter
@@ -320,7 +321,7 @@ export default function InterviewModeScreen() {
       {showConfidenceCues && (
         <ConfidenceCueDisplay 
           isRecording={isRecording} 
-          intervalSeconds={15}
+          intervalSeconds={20}
         />
       )}
 
