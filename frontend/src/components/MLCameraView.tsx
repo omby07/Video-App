@@ -188,27 +188,31 @@ function NativeMLCamera({
   }, [onCameraReady, onMLStatusChange]);
 
   // Native frame processor that calls the segmentation plugin
-  // VisionCamera v4: plugins are called directly by name in worklets
+  // VisionCamera v4: Use plugin.call(frame, options) pattern
   const frameProcessor = useFrameProcessor?.((frame: any) => {
     'worklet';
     
-    // Skip if no effect
+    // Skip if no effect requested
     if (backgroundEffect === 'none') {
       return;
     }
     
+    // Skip if plugin not available
+    if (segmentPersonPlugin == null) {
+      return;
+    }
+    
     try {
-      // In VisionCamera v4, the plugin is called directly by its registered name
-      // The VISION_EXPORT_SWIFT_FRAME_PROCESSOR macro registers it as 'segmentPerson'
-      // @ts-ignore
-      const result = segmentPerson(frame, {
+      // Call the plugin using the .call() method (v4 API)
+      // The plugin processes the frame in-place
+      segmentPersonPlugin.call(frame, {
         effectType: backgroundEffect,
         blurIntensity: blurIntensity,
         backgroundColor: backgroundColor,
       });
-      // Frame is modified in-place by the plugin
     } catch (e) {
-      // Plugin not available or error - silently continue
+      // Plugin error - silently continue without effect
+      // This handles cases where the plugin might not be fully loaded
     }
   }, [backgroundEffect, blurIntensity, backgroundColor]);
 
