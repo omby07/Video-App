@@ -1,3 +1,4 @@
+// CAMERA FILE UPDATED ✅
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -15,12 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import MLCameraView for ML-powered background segmentation
 let MLCameraView: any = null;
-let useMLCameraFeatures: any = () => ({ isNativeAvailable: false, isMLAvailable: false });
+let useMLCameraFeatures: any = () => ({
+  isNativeAvailable: false,
+  supportsSegmentation: false,
+  supportsBackgroundBlur: false,
+  supportsBackgroundReplace: false,
+});
 
 try {
   const cameraModule = require('../../src/components/MLCameraView');
   MLCameraView = cameraModule.default;
   useMLCameraFeatures = cameraModule.useMLCameraFeatures;
+  console.log('DBG: MLCameraView successfully loaded');
 } catch (e) {
   console.log('[CameraScreen] MLCameraView not available:', e);
 }
@@ -30,7 +37,26 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isNativeAvailable, isMLAvailable } = useMLCameraFeatures();
+  const {
+  isNativeAvailable,
+  supportsSegmentation,
+  supportsBackgroundBlur,
+  supportsBackgroundReplace,
+} = useMLCameraFeatures();
+
+useEffect(() => {
+  console.log('DBG ML flags:', {
+    isNativeAvailable,
+    supportsSegmentation,
+    supportsBackgroundBlur,
+    supportsBackgroundReplace,
+  });
+}, [
+  isNativeAvailable,
+  supportsSegmentation,
+  supportsBackgroundBlur,
+  supportsBackgroundReplace,
+]);
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -57,13 +83,20 @@ export default function CameraScreen() {
     };
   }, []);
 
-  // Determine background effect type
-  const getBackgroundEffect = useCallback(() => {
-    if (!selectedBackground) return 'none';
-    if (selectedBackground.type === 'blur') return 'blur';
-    if (selectedBackground.type === 'color' || selectedBackground.type === 'professional') return 'color';
-    return 'none';
-  }, [selectedBackground]);
+// Determine background effect type
+const getBackgroundEffect = useCallback(() => {
+  if (!selectedBackground) return 'none';
+
+  if (selectedBackground.type === 'blur') {
+    return supportsBackgroundBlur ? 'blur' : 'none';
+  }
+
+  if (selectedBackground.type === 'color' || selectedBackground.type === 'professional') {
+    return supportsBackgroundReplace ? 'color' : 'none';
+  }
+
+  return 'none';
+}, [selectedBackground, supportsBackgroundBlur, supportsBackgroundReplace]);
 
   const handleCameraReady = useCallback(() => {
     console.log('[CameraScreen] Camera ready');
@@ -191,24 +224,29 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
+
       {/* ML Camera View - Full Screen with Background Segmentation */}
       <MLCameraView
-        facing={cameraType as 'front' | 'back'}
-        isActive={true}
-        enableAudio={audioEnabled}
-        backgroundEffect={getBackgroundEffect() as any}
-        blurIntensity={selectedBackground?.blurIntensity || 50}
-        backgroundColor={selectedBackground?.value}
-        filterSettings={filterSettings}
-        isRecording={isRecording}
-        isPaused={isPaused}
-        onCameraReady={handleCameraReady}
-        onRecordingStarted={handleRecordingStarted}
-        onRecordingFinished={handleRecordingFinished}
-        onRecordingError={handleRecordingError}
-        showEffectBadges={false}
-        style={styles.fullScreenCamera}
-      />
+  facing={cameraType as 'front' | 'back'}
+  isActive={true}
+  enableAudio={audioEnabled}
+  backgroundEffect={getBackgroundEffect()}
+  blurIntensity={getBackgroundEffect() === 'blur' ? 95 : 0}
+  backgroundColor={
+    getBackgroundEffect() === 'color'
+      ? selectedBackground?.value
+      : undefined
+  }
+  filterSettings={filterSettings}
+  isRecording={isRecording}
+  isPaused={isPaused}
+  onCameraReady={handleCameraReady}
+  onRecordingStarted={handleRecordingStarted}
+  onRecordingFinished={handleRecordingFinished}
+  onRecordingError={handleRecordingError}
+  showEffectBadges={false}
+  style={styles.fullScreenCamera}
+/>
 
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>

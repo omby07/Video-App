@@ -91,15 +91,14 @@ if (Platform.OS !== 'web') {
           hasSegmentationPlugin = true;
           console.log('[MLCamera] Segmentation plugin initialized successfully');
         } else {
-          console.log('[MLCamera] Segmentation plugin not found (will work in EAS build)');
-          // Set to true anyway - plugin will be available in actual build
-          hasSegmentationPlugin = true;
+          cconsole.log('[MLCamera] Segmentation plugin not found');
+hasSegmentationPlugin = false;
         }
       }
     } catch (e) {
       console.log('[MLCamera] Plugin init error (expected in dev):', e);
       // Still set to true - plugin will be available in native build
-      hasSegmentationPlugin = true;
+      hasSegmentationPlugin = false;
     }
   } catch (e) {
     console.log('[MLCamera] Native modules not available:', e);
@@ -368,6 +367,11 @@ function NativeMLCamera({
 
 // Main export
 export default function MLCameraView(props: MLCameraViewProps) {
+  console.log('[DBG MLCameraView props]', {
+  backgroundEffect: props.backgroundEffect,
+  blurIntensity: props.blurIntensity,
+  backgroundColor: props.backgroundColor,
+});
   if (!isNativeAvailable) {
     return <CameraFallback {...props} />;
   }
