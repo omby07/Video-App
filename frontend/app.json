@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "Video Beautify",
+    "slug": "video-beautify",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "videobeautify",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.videobeautify.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Record videos with custom backgrounds and beauty filters",
+        "NSMicrophoneUsageDescription": "Record audio with your videos",
+        "NSPhotoLibraryUsageDescription": "Save and access your video recordings",
+        "NSPhotoLibraryAddUsageDescription": "Save your recorded videos to Photos"
+      }
+    },
+    "android": {
+      "package": "com.videobeautify.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#000"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/withPersonSegmentation.js",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "$(PRODUCT_NAME) needs camera access to record videos with effects",
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "$(PRODUCT_NAME) needs microphone access to record audio",
+          "enableFrameProcessors": true,
+          "enableCodeScanner": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "$(PRODUCT_NAME) needs access to your photos to save videos",
+          "savePhotosPermission": "$(PRODUCT_NAME) needs permission to save videos to your gallery"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
