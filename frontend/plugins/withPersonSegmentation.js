@@ -119,9 +119,12 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
                 let blurRadius = (blurIntensity / 100.0) * 30.0
                 let blurredImage = ciImage.applyingGaussianBlur(sigma: blurRadius).cropped(to: ciImage.extent)
                 
-                // Composite: sharp person over blurred background
-                outputImage = blurredImage.applyingFilter("CIBlendWithMask", parameters: [
-                    kCIInputBackgroundImageKey: ciImage,
+                // CIBlendWithMask: Where mask is WHITE, show INPUT image; where BLACK, show BACKGROUND
+                // Vision mask: person=WHITE, background=BLACK
+                // We want: person=SHARP (original), background=BLURRED
+                // So: INPUT=original (sharp), BACKGROUND=blurred, MASK=personMask
+                outputImage = ciImage.applyingFilter("CIBlendWithMask", parameters: [
+                    kCIInputBackgroundImageKey: blurredImage,
                     kCIInputMaskImageKey: maskCIImage
                 ])
                 
@@ -130,9 +133,10 @@ public class PersonSegmentationFrameProcessorPlugin: FrameProcessorPlugin {
                 let bgColor = self.parseHexColor(backgroundColor)
                 let colorImage = CIImage(color: bgColor).cropped(to: ciImage.extent)
                 
-                // Composite: person over solid color
-                outputImage = colorImage.applyingFilter("CIBlendWithMask", parameters: [
-                    kCIInputBackgroundImageKey: ciImage,
+                // INPUT=original (person), BACKGROUND=solid color, MASK=personMask
+                // Where mask is WHITE (person), show original; where BLACK (bg), show color
+                outputImage = ciImage.applyingFilter("CIBlendWithMask", parameters: [
+                    kCIInputBackgroundImageKey: colorImage,
                     kCIInputMaskImageKey: maskCIImage
                 ])
                 
