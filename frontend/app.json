@@ -12,10 +12,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.videobeautify.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Record videos with custom backgrounds and beauty filters",
-        "NSMicrophoneUsageDescription": "Record audio with your videos",
+        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs camera access to record videos with effects",
+        "NSMicrophoneUsageDescription": "$(PRODUCT_NAME) needs microphone access to record audio",
         "NSPhotoLibraryUsageDescription": "Save and access your video recordings",
-        "NSPhotoLibraryAddUsageDescription": "Save your recorded videos to Photos"
+        "NSPhotoLibraryAddUsageDescription": "Save your recorded videos to Photos",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,7 +32,15 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO"
+        "READ_MEDIA_VIDEO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -71,6 +80,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "00dcb564-8253-425d-8cfd-a39afb51db3b"
+      }
     }
   }
 }
