@@ -376,6 +376,13 @@ class CameraManager: NSObject, ObservableObject {
             let scaleY = image.extent.height / maskImage.extent.height
             maskImage = maskImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
             
+            // STEP 1: Feather the mask edges for natural hair/shoulder transitions
+            // Apply Gaussian blur to the mask itself to soften hard edges
+            // 5-6 pixel radius provides good softening without creating halos
+            let maskFeatherRadius = 5.0
+            maskImage = maskImage.applyingGaussianBlur(sigma: maskFeatherRadius)
+                                 .cropped(to: image.extent)
+            
             // Create blurred background
             let blurRadius = (blurIntensity / 100.0) * 25.0
             guard let blurredImage = image.applyingGaussianBlur(sigma: blurRadius)
@@ -384,6 +391,7 @@ class CameraManager: NSObject, ObservableObject {
             }
             
             // Composite: person (sharp) over blurred background
+            // The feathered mask creates a gradual transition at edges
             let composited = image.applyingFilter("CIBlendWithMask", parameters: [
                 kCIInputBackgroundImageKey: blurredImage,
                 kCIInputMaskImageKey: maskImage
