@@ -383,8 +383,14 @@ class CameraManager: NSObject, ObservableObject {
             maskImage = maskImage.applyingGaussianBlur(sigma: maskFeatherRadius)
                                  .cropped(to: image.extent)
             
-            // Create blurred background
-            let blurRadius = (blurIntensity / 100.0) * 25.0
+            // STEP 2: Non-linear blur intensity mapping
+            // Square root curve makes mid-range slider values more impactful
+            // Old: linear 50% = 12.5 sigma (barely visible)
+            // New: sqrt   50% = 24.7 sigma (clearly visible)
+            let maxBlurSigma = 35.0  // Increased from 25 for stronger portrait effect
+            let normalizedIntensity = sqrt(blurIntensity / 100.0)  // Square root curve
+            let blurRadius = normalizedIntensity * maxBlurSigma
+            
             guard let blurredImage = image.applyingGaussianBlur(sigma: blurRadius)
                 .cropped(to: image.extent) as CIImage? else {
                 return image
