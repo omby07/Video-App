@@ -385,9 +385,8 @@ class CameraManager: NSObject, ObservableObject {
             
             // STEP 2: Non-linear blur intensity mapping
             // Square root curve makes mid-range slider values more impactful
-            // Old: linear 50% = 12.5 sigma (barely visible)
-            // New: sqrt   50% = 24.7 sigma (clearly visible)
-            let maxBlurSigma = 35.0  // Increased from 25 for stronger portrait effect
+            // STEP 2A: Increased max from 35 to 45 for stronger portrait effect
+            let maxBlurSigma = 45.0
             let normalizedIntensity = sqrt(blurIntensity / 100.0)  // Square root curve
             let blurRadius = normalizedIntensity * maxBlurSigma
             
