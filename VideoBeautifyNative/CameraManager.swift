@@ -440,9 +440,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
                 self.processedImage = ciImage
             }
             
-            // Write to recording if active
+            // Write to recording if active - use PROCESSED buffer with effects
             if isRecording {
-                writeRawCameraFrame(originalBuffer)
+                writeProcessedFrame(processedBuffer)
             }
         
             
@@ -467,6 +467,28 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
             frameCount += 1
             if frameCount % 30 == 0 {
                 print("[DIAG-RAW] Written \(frameCount) raw frames")
+            }
+        }
+    }
+    
+    // Write processed frame with effects to recording
+    private func writeProcessedFrame(_ buffer: CVPixelBuffer) {
+        guard let writer = assetWriter,
+              let input = videoInput,
+              let adaptor = pixelBufferAdaptor,
+              writer.status == .writing,
+              input.isReadyForMoreMediaData else {
+            return
+        }
+        
+        let presentationTime = CMTime(value: CMTimeValue(videoFrameNumber),
+                                      timescale: CMTimeScale(targetFrameRate))
+        
+        if adaptor.append(buffer, withPresentationTime: presentationTime) {
+            videoFrameNumber += 1
+            frameCount += 1
+            if frameCount % 30 == 0 {
+                print("[PROCESSED] Written \(frameCount) frames with effects")
             }
         }
     }
