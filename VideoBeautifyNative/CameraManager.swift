@@ -158,6 +158,7 @@ class CameraManager: NSObject, ObservableObject {
         
         do {
             assetWriter = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+            print("[CameraManager] Writer created, status: \(assetWriter!.status.rawValue)")
             
             // Video input settings - match camera output format
             let videoSettings: [String: Any] = [
@@ -206,15 +207,26 @@ class CameraManager: NSObject, ObservableObject {
                 assetWriter!.add(audioInput!)
             }
             
+            // START THE WRITER immediately
+            guard assetWriter!.startWriting() else {
+                print("[CameraManager] Failed to start writing: \(assetWriter!.error?.localizedDescription ?? "unknown")")
+                return
+            }
+            print("[CameraManager] startWriting() succeeded, status: \(assetWriter!.status.rawValue)")
+            
+            // Start session at time zero
+            assetWriter!.startSession(atSourceTime: .zero)
+            print("[CameraManager] startSession(atSourceTime: .zero) called")
+            
             currentRecordingURL = outputURL
             isRecording = true
             recordingStartTime = nil
             frameCount = 0
             videoFrameNumber = 0
 
-            print("[CameraManager] Recording started: \(outputURL)")
+            print("[CameraManager] Recording started, writer status: \(assetWriter!.status.rawValue)")
         } catch {
-            print("[CameraManager] Failed to start recording: \(error)")
+            print("[CameraManager] Failed to create writer: \(error)")
         }
     }
     
@@ -224,14 +236,40 @@ class CameraManager: NSObject, ObservableObject {
         
         print("[CameraManager] Stopping recording. Total frames written: \(frameCount)")
         
+        guard let writer = assetWriter else {
+            print("[CameraManager] No writer to stop")
+            return
+        }
+        
+        print("[CameraManager] Writer status before stop: \(writer.status.rawValue)")
+        
+        // Only finalize if writer is in .writing state
+        guard writer.status == .writing else {
+            print("[CameraManager] Writer not in .writing state (status: \(writer.status.rawValue)), skipping finalize")
+            // Cleanup
+            assetWriter = nil
+            videoInput = nil
+            audioInput = nil
+            pixelBufferAdaptor = nil
+            return
+        }
+        
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
+        print("[CameraManager] markAsFinished() called on inputs")
         
-        assetWriter?.finishWriting { [weak self] in
-            guard let self = self, let url = self.currentRecordingURL else { return }
+        writer.finishWriting { [weak self] in
+            guard let self = self else { return }
             
-            if let error = self.assetWriter?.error {
+            print("[CameraManager] finishWriting completed, status: \(writer.status.rawValue)")
+            
+            if let error = writer.error {
                 print("[CameraManager] Recording error: \(error)")
+                return
+            }
+            
+            guard let url = self.currentRecordingURL else {
+                print("[CameraManager] No recording URL")
                 return
             }
             
