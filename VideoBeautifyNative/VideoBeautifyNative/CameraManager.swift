@@ -66,7 +66,60 @@ class CameraManager: NSObject, ObservableObject {
     override init() {
         super.init()
         setupMetal()
-        setupCaptureSession()
+        // Note: setupCaptureSession() will be called after permissions are granted
+    }
+    
+    // MARK: - Permissions
+    func checkAndRequestPermissions(completion: @escaping (Bool) -> Void) {
+        var cameraGranted = false
+        var micGranted = false
+        
+        let group = DispatchGroup()
+        
+        // Check camera permission
+        group.enter()
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            cameraGranted = true
+            print("[CameraManager] Camera permission: already authorized")
+            group.leave()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                cameraGranted = granted
+                print("[CameraManager] Camera permission: \(granted ? "granted" : "denied")")
+                group.leave()
+            }
+        default:
+            print("[CameraManager] Camera permission: denied or restricted")
+            group.leave()
+        }
+        
+        // Check microphone permission
+        group.enter()
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            micGranted = true
+            print("[CameraManager] Microphone permission: already authorized")
+            group.leave()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                micGranted = granted
+                print("[CameraManager] Microphone permission: \(granted ? "granted" : "denied")")
+                group.leave()
+            }
+        default:
+            print("[CameraManager] Microphone permission: denied or restricted")
+            group.leave()
+        }
+        
+        group.notify(queue: .main) {
+            let allGranted = cameraGranted && micGranted
+            print("[CameraManager] All permissions granted: \(allGranted)")
+            if allGranted {
+                self.setupCaptureSession()
+            }
+            completion(allGranted)
+        }
     }
     
     private func setupMetal() {
@@ -98,12 +151,28 @@ class CameraManager: NSObject, ObservableObject {
             captureSession.addInput(videoInput)
         }
         
-        // Add audio input
+        // CRITICAL: Configure AVAudioSession BEFORE adding audio input
+        // Without this, iOS won't route microphone data to the app
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
+            try audioSession.setActive(true)
+            print("[CameraManager] AVAudioSession configured and activated")
+        } catch {
+            print("[CameraManager] ERROR: Failed to configure AVAudioSession: \(error)")
+        }
+        
+        // Add audio input (requires AVAudioSession to be configured first)
         if let audioDevice = AVCaptureDevice.default(for: .audio),
            let audioInput = try? AVCaptureDeviceInput(device: audioDevice) {
             if captureSession.canAddInput(audioInput) {
                 captureSession.addInput(audioInput)
+                print("[CameraManager] Audio input added to session")
+            } else {
+                print("[CameraManager] WARNING: Cannot add audio input to session")
             }
+        } else {
+            print("[CameraManager] WARNING: Failed to get audio device or create audio input")
         }
         
         // Configure video output
@@ -121,6 +190,9 @@ class CameraManager: NSObject, ObservableObject {
         audioOutput.setSampleBufferDelegate(self, queue: processingQueue)
         if captureSession.canAddOutput(audioOutput) {
             captureSession.addOutput(audioOutput)
+            print("[CameraManager] Audio output added to session")
+        } else {
+            print("[CameraManager] WARNING: Cannot add audio output to session")
         }
         
         // Set video orientation

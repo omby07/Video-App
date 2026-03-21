@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
@@ -21,6 +22,10 @@ struct ContentView: View {
     @State private var isRecording = false
     @State private var recordingDuration: TimeInterval = 0
     @State private var showingSavedAlert = false
+    
+    // Permission state
+    @State private var permissionsGranted = false
+    @State private var showingPermissionAlert = false
     
     var body: some View {
         ZStack {
@@ -150,7 +155,15 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            cameraManager.startSession()
+            // Request permissions first, then start session
+            cameraManager.checkAndRequestPermissions { granted in
+                permissionsGranted = granted
+                if granted {
+                    cameraManager.startSession()
+                } else {
+                    showingPermissionAlert = true
+                }
+            }
         }
         .onDisappear {
             cameraManager.stopSession()
@@ -159,6 +172,16 @@ struct ContentView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Your video has been saved to Photos.")
+        }
+        .alert("Permissions Required", isPresented: $showingPermissionAlert) {
+            Button("Open Settings") {
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsURL)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Camera and microphone access are required to record videos. Please enable them in Settings.")
         }
         .onReceive(cameraManager.$lastSavedURL) { url in
             if url != nil {
