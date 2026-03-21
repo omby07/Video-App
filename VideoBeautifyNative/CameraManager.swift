@@ -383,10 +383,10 @@ class CameraManager: NSObject, ObservableObject {
             maskImage = maskImage.applyingGaussianBlur(sigma: maskFeatherRadius)
                                  .cropped(to: image.extent)
             
-            // STEP 2: Non-linear blur intensity mapping
+            // STEP 2: Non-linear blur intensity mapping + background enhancement
             // Square root curve makes mid-range slider values more impactful
-            // STEP 2A: Increased max from 35 to 45 for stronger portrait effect
-            let maxBlurSigma = 45.0
+            // Reverted to 38 sigma for stability (45 caused GPU overload)
+            let maxBlurSigma = 38.0
             let normalizedIntensity = sqrt(blurIntensity / 100.0)  // Square root curve
             let blurRadius = normalizedIntensity * maxBlurSigma
             
@@ -395,10 +395,17 @@ class CameraManager: NSObject, ObservableObject {
                 return image
             }
             
-            // Composite: person (sharp) over blurred background
+            // Enhance background: subtle darkening + desaturation for better separation
+            // This creates "premium portrait" feel without GPU-heavy higher blur
+            let enhancedBackground = blurredImage.applyingFilter("CIColorControls", parameters: [
+                kCIInputBrightnessKey: -0.05,   // Subtle darkening
+                kCIInputSaturationKey: 0.90     // Slight desaturation
+            ])
+            
+            // Composite: person (sharp) over enhanced blurred background
             // The feathered mask creates a gradual transition at edges
             let composited = image.applyingFilter("CIBlendWithMask", parameters: [
-                kCIInputBackgroundImageKey: blurredImage,
+                kCIInputBackgroundImageKey: enhancedBackground,
                 kCIInputMaskImageKey: maskImage
             ])
             
