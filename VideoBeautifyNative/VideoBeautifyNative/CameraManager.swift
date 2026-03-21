@@ -207,16 +207,16 @@ class CameraManager: NSObject, ObservableObject {
             }
             
             currentRecordingURL = outputURL
-                        isRecording = true
-                        recordingStartTime = nil
-                        frameCount = 0
-                        videoFrameNumber = 0
-                        
-                        // Start the writer immediately
-                        assetWriter!.startWriting()
-                        assetWriter!.startSession(atSourceTime: .zero)
-
-                        print("[CameraManager] Recording started: \(outputURL)")
+            isRecording = true
+            recordingStartTime = nil  // Will be set on first video frame
+            frameCount = 0
+            videoFrameNumber = 0
+            
+            // NOTE: Do NOT call startWriting() or startSession() here.
+            // They will be called on the first video frame to establish
+            // a consistent timeline baseline for both video and audio.
+            
+            print("[CameraManager] Recording prepared: \(outputURL)")
 
         } catch {
             print("[CameraManager] Failed to start recording: \(error)")
@@ -559,7 +559,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
         }
     }
     
-    // FIXED: Deep copy pixel buffer to prevent overwrite before encoding
+    // FIXED: Single initialization point with consistent zero-based timeline
         private func writeVideoFrame(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
             guard let writer = assetWriter,
                   let input = videoInput,
@@ -567,16 +567,17 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
                 return
             }
             
-            // Initialize writer on first frame
+            // Initialize writer on first frame - single point of initialization
             if recordingStartTime == nil {
-                recordingStartTime = timestamp
+                recordingStartTime = timestamp  // Capture baseline for relative timing
                 
+                // Start writing and session at .zero for consistent timeline
                 guard writer.startWriting() else {
                     print("[CameraManager] Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
                     return
                 }
-                writer.startSession(atSourceTime: timestamp)
-                print("[CameraManager] Writer started at time: \(timestamp.seconds)")
+                writer.startSession(atSourceTime: .zero)
+                print("[CameraManager] Writer started. Baseline timestamp: \(timestamp.seconds)s")
             }
             
             // Check writer status
@@ -585,7 +586,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
                 return
             }
             
-            // Calculate presentation time relative to start
+            // Calculate presentation time relative to first frame (starts at 0)
             let presentationTime = CMTimeSubtract(timestamp, recordingStartTime!)
             
             // Check if input is ready
@@ -699,16 +700,48 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
             return destinationBuffer
         }
     
+    // FIXED: Adjust audio timestamps to match video timeline (zero-based)
     private func writeAudioSample(_ sampleBuffer: CMSampleBuffer) {
         guard let input = audioInput,
               let writer = assetWriter,
-              recordingStartTime != nil,
+              let startTime = recordingStartTime,  // Must have video baseline
               writer.status == .writing else {
             return
         }
         
-        if input.isReadyForMoreMediaData {
-            input.append(sampleBuffer)
+        guard input.isReadyForMoreMediaData else {
+            return
+        }
+        
+        // Get original timestamp and adjust relative to recording start
+        let originalTimestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let adjustedTimestamp = CMTimeSubtract(originalTimestamp, startTime)
+        
+        // Skip audio samples that arrived before video started (negative time)
+        guard adjustedTimestamp.seconds >= 0 else {
+            return
+        }
+        
+        // Create a copy of the sample buffer with adjusted timing
+        var timingInfo = CMSampleTimingInfo(
+            duration: CMSampleBufferGetDuration(sampleBuffer),
+            presentationTimeStamp: adjustedTimestamp,
+            decodeTimeStamp: .invalid
+        )
+        
+        var adjustedBuffer: CMSampleBuffer?
+        let status = CMSampleBufferCreateCopyWithNewTiming(
+            allocator: kCFAllocatorDefault,
+            sampleBuffer: sampleBuffer,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timingInfo,
+            sampleBufferOut: &adjustedBuffer
+        )
+        
+        if status == noErr, let buffer = adjustedBuffer {
+            input.append(buffer)
+        } else {
+            print("[CameraManager] Failed to adjust audio timing: \(status)")
         }
     }
 }
