@@ -386,13 +386,13 @@ class CameraManager: NSObject, ObservableObject {
             let scaleY = image.extent.height / maskImage.extent.height
             maskImage = maskImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
             
-            // TEMPORAL MASK SMOOTHING: Blend with previous frame's mask
-            // This reduces frame-to-frame flicker by stabilizing mask boundaries
-            // Blend ratio: 75% current + 25% previous
+            // TEMPORAL MASK SMOOTHING: Light blend with previous frame's mask
+            // Reduces flicker while minimizing motion lag
+            // Blend ratio: 90% current + 10% previous (reduced from 25% to improve responsiveness)
             if let previousMask = previousMaskImage {
                 maskImage = maskImage.applyingFilter("CIDissolveTransition", parameters: [
                     kCIInputTargetImageKey: previousMask,
-                    kCIInputTimeKey: 0.25  // 25% previous, 75% current
+                    kCIInputTimeKey: 0.10  // 10% previous, 90% current
                 ])
             }
             // Store current mask for next frame (after scaling, before feathering)
