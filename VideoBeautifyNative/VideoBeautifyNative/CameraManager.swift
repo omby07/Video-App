@@ -297,24 +297,90 @@ class CameraManager: NSObject, ObservableObject {
     private func applyTouchUp(to image: CIImage) -> CIImage {
         var result = image
         
-        // Smoothing (subtle blur for skin smoothing effect)
+        // ==============================================
+        // SOFT GLOW TECHNIQUE - Conservative V1
+        // ==============================================
+        // Goal: Subtle skin smoothing while preserving eyes,
+        // eyebrows, lips, and hairline detail.
+        //
+        // Filter Chain:
+        // 1. Create soft glow layer (light blur + slight lift)
+        // 2. Create high-pass detail mask (edges to preserve)
+        // 3. Blend soft layer with original, masked by detail
+        // ==============================================
+        
         if smoothingIntensity > 0 {
-            let smoothingRadius = (smoothingIntensity / 100.0) * 4.0
-            if let smoothed = result.applyingFilter("CIGaussianBlur", parameters: [
-                kCIInputRadiusKey: smoothingRadius
-            ]).cropped(to: result.extent) as CIImage? {
-                // Blend 50% smoothed with original
-                if let blended = smoothed.applyingFilter("CISourceOverCompositing", parameters: [
-                    kCIInputBackgroundImageKey: result
-                ]).applyingFilter("CIColorControls", parameters: [
-                    kCIInputSaturationKey: 1.0
-                ]) as CIImage? {
-                    result = blended.cropped(to: image.extent)
-                }
-            }
+            let extent = image.extent
+            
+            // --- PARAMETERS (Conservative starting values) ---
+            // Soft layer blur: max 5px at 100% intensity (very light)
+            let softBlurRadius = (smoothingIntensity / 100.0) * 5.0
+            
+            // Detail mask blur: larger to capture edges broadly
+            let detailBlurRadius: Double = 12.0
+            
+            // Blend amount: max 25% at full intensity (subtle)
+            let blendAmount = (smoothingIntensity / 100.0) * 0.25
+            
+            // Detail mask contrast boost (higher = more detail preserved)
+            let detailContrast: Double = 2.5
+            
+            // --- STEP 1: Create soft glow layer ---
+            // Light Gaussian blur for skin smoothing
+            let softLayer = image
+                .applyingFilter("CIGaussianBlur", parameters: [
+                    kCIInputRadiusKey: softBlurRadius
+                ])
+                .cropped(to: extent)
+            
+            // --- STEP 2: Create detail preservation mask (high-pass) ---
+            // Heavy blur of original
+            let heavyBlurred = image
+                .applyingFilter("CIGaussianBlur", parameters: [
+                    kCIInputRadiusKey: detailBlurRadius
+                ])
+                .cropped(to: extent)
+            
+            // Subtract blurred from original to get edges/details
+            // Using CISubtractBlendMode: result = source - background
+            // Then shift to 0.5 gray baseline and boost contrast
+            let detailExtracted = image
+                .applyingFilter("CISubtractBlendMode", parameters: [
+                    kCIInputBackgroundImageKey: heavyBlurred
+                ])
+                .cropped(to: extent)
+            
+            // Convert detail map to usable mask:
+            // - Boost contrast to make edges pop
+            // - Invert so edges become DARK (protect) and flat areas WHITE (smooth)
+            let detailMask = detailExtracted
+                .applyingFilter("CIColorControls", parameters: [
+                    kCIInputContrastKey: detailContrast,
+                    kCIInputBrightnessKey: 0.5  // Shift baseline up
+                ])
+                .applyingFilter("CIColorInvert")  // Invert: edges=dark, smooth areas=light
+                .cropped(to: extent)
+            
+            // --- STEP 3: Selective blend using mask ---
+            // First, create the basic blend between original and soft layer
+            let basicBlend = image
+                .applyingFilter("CIDissolveTransition", parameters: [
+                    kCIInputTargetImageKey: softLayer,
+                    kCIInputTimeKey: blendAmount  // 0 = original, 1 = soft
+                ])
+                .cropped(to: extent)
+            
+            // Apply detail mask: where mask is dark (edges), keep original
+            // where mask is light (smooth skin), use the blended result
+            result = image
+                .applyingFilter("CIBlendWithMask", parameters: [
+                    kCIInputBackgroundImageKey: basicBlend,
+                    kCIInputMaskImageKey: detailMask
+                ])
+                .cropped(to: extent)
         }
         
-        // Brightness adjustment
+        // --- BRIGHTNESS ADJUSTMENT (Independent, unchanged) ---
         if brightnessAdjust != 0 {
             let brightnessValue = brightnessAdjust / 100.0
             result = result.applyingFilter("CIColorControls", parameters: [
