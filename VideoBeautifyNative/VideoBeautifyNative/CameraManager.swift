@@ -534,8 +534,14 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
             }
         
             
-        } else if output == audioOutput && isRecording {
-            writeAudioSample(sampleBuffer)
+        } else if output == audioOutput {
+            // DIAG: Log audio capture regardless of recording state
+            if isRecording {
+                print("[AUDIO-CAPTURE] Audio sample received while recording")
+                writeAudioSample(sampleBuffer)
+            } else {
+                // Only log occasionally when not recording to avoid spam
+            }
         }
     }
     private func writeRawCameraFrame(_ cameraBuffer: CVPixelBuffer) {
@@ -701,24 +707,46 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
         }
     
     // FIXED: Adjust audio timestamps to match video timeline (zero-based)
+    // DIAGNOSTIC: Added extensive logging to debug audio recording
     private func writeAudioSample(_ sampleBuffer: CMSampleBuffer) {
-        guard let input = audioInput,
-              let writer = assetWriter,
-              let startTime = recordingStartTime,  // Must have video baseline
-              writer.status == .writing else {
+        // DIAG 1: Check basic guards
+        guard let input = audioInput else {
+            print("[AUDIO-DIAG] SKIP: audioInput is nil")
+            return
+        }
+        
+        guard let writer = assetWriter else {
+            print("[AUDIO-DIAG] SKIP: assetWriter is nil")
+            return
+        }
+        
+        guard let startTime = recordingStartTime else {
+            // This is expected for audio samples that arrive before first video frame
+            print("[AUDIO-DIAG] SKIP: recordingStartTime not set yet (waiting for video)")
+            return
+        }
+        
+        guard writer.status == .writing else {
+            print("[AUDIO-DIAG] SKIP: writer.status = \(writer.status.rawValue) (not writing)")
             return
         }
         
         guard input.isReadyForMoreMediaData else {
+            print("[AUDIO-DIAG] SKIP: audioInput not ready for more data")
             return
         }
         
-        // Get original timestamp and adjust relative to recording start
+        // DIAG 2: Log timestamp info
         let originalTimestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         let adjustedTimestamp = CMTimeSubtract(originalTimestamp, startTime)
         
+        // Log every 10th audio sample to avoid spam
+        let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        print("[AUDIO-DIAG] Original: \(originalTimestamp.seconds)s, StartTime: \(startTime.seconds)s, Adjusted: \(adjustedTimestamp.seconds)s, Samples: \(sampleCount)")
+        
         // Skip audio samples that arrived before video started (negative time)
         guard adjustedTimestamp.seconds >= 0 else {
+            print("[AUDIO-DIAG] SKIP: Negative adjusted time (\(adjustedTimestamp.seconds)s)")
             return
         }
         
@@ -739,9 +767,14 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
         )
         
         if status == noErr, let buffer = adjustedBuffer {
-            input.append(buffer)
+            let appendSuccess = input.append(buffer)
+            if appendSuccess {
+                print("[AUDIO-DIAG] SUCCESS: Appended audio at \(adjustedTimestamp.seconds)s")
+            } else {
+                print("[AUDIO-DIAG] FAIL: append() returned false. Writer error: \(writer.error?.localizedDescription ?? "none")")
+            }
         } else {
-            print("[CameraManager] Failed to adjust audio timing: \(status)")
+            print("[AUDIO-DIAG] FAIL: CMSampleBufferCreateCopyWithNewTiming failed with status \(status)")
         }
     }
 }
