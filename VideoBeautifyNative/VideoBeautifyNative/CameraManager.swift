@@ -202,6 +202,21 @@ class CameraManager: NSObject, ObservableObject {
         }
         
         captureSession.commitConfiguration()
+        
+        // CRITICAL DIAGNOSTIC: Verify final session state
+        print("[CameraManager] === SESSION STATE AFTER CONFIG ===")
+        print("[CameraManager] Inputs: \(captureSession.inputs.count)")
+        for (index, input) in captureSession.inputs.enumerated() {
+            if let deviceInput = input as? AVCaptureDeviceInput {
+                print("[CameraManager]   Input[\(index)]: \(deviceInput.device.localizedName) (\(deviceInput.device.deviceType.rawValue))")
+            }
+        }
+        print("[CameraManager] Outputs: \(captureSession.outputs.count)")
+        for (index, output) in captureSession.outputs.enumerated() {
+            let outputType = (output == videoOutput) ? "VIDEO" : (output == audioOutput) ? "AUDIO" : "OTHER"
+            print("[CameraManager]   Output[\(index)]: \(outputType) - \(type(of: output))")
+        }
+        print("[CameraManager] === END SESSION STATE ===")
         print("[CameraManager] Capture session configured")
     }
     
@@ -569,7 +584,17 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         
-        if output == videoOutput {guard let originalBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        // CRITICAL DIAGNOSTIC: Log EVERY callback to see what outputs are firing
+        // This will be verbose but we need to know if audio callbacks happen at all
+        let outputType = (output == videoOutput) ? "VIDEO" : (output == audioOutput) ? "AUDIO" : "UNKNOWN"
+        
+        // Log audio unconditionally (every callback), video only occasionally
+        if output == audioOutput {
+            print("[CALLBACK] \(outputType) output received")
+        }
+        
+        if output == videoOutput {
+            guard let originalBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
             
             // DIAGNOSTIC: sample pixel data to verify frames are changing
             if isRecording {
