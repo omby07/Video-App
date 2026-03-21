@@ -49,6 +49,9 @@ class CameraManager: NSObject, ObservableObject {
         return request
     }()
     
+    // Temporal mask smoothing - stores previous frame's mask for blending
+    private var previousMaskImage: CIImage?
+    
     // Recording
     private var assetWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
@@ -135,6 +138,9 @@ class CameraManager: NSObject, ObservableObject {
     
     // MARK: - Session Control
     func startSession() {
+        // Reset temporal mask smoothing state on session start
+        previousMaskImage = nil
+        
         processingQueue.async { [weak self] in
             self?.captureSession.startRunning()
             print("[CameraManager] Session started")
@@ -144,6 +150,8 @@ class CameraManager: NSObject, ObservableObject {
     func stopSession() {
         processingQueue.async { [weak self] in
             self?.captureSession.stopRunning()
+            // Reset temporal mask smoothing state on session stop
+            self?.previousMaskImage = nil
             print("[CameraManager] Session stopped")
         }
     }
@@ -365,16 +373,30 @@ class CameraManager: NSObject, ObservableObject {
             try requestHandler.perform([segmentationRequest])
             
             guard let result = segmentationRequest.results?.first else {
+                // No person detected - reset previous mask to avoid ghosting
+                previousMaskImage = nil
                 return image
             }
             
             let maskBuffer = result.pixelBuffer
             var maskImage = CIImage(cvPixelBuffer: maskBuffer)
             
-            // Scale mask to match image size
+            // Scale mask to match image size (same coordinate space as frame)
             let scaleX = image.extent.width / maskImage.extent.width
             let scaleY = image.extent.height / maskImage.extent.height
             maskImage = maskImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+            
+            // TEMPORAL MASK SMOOTHING: Blend with previous frame's mask
+            // This reduces frame-to-frame flicker by stabilizing mask boundaries
+            // Blend ratio: 75% current + 25% previous
+            if let previousMask = previousMaskImage {
+                maskImage = maskImage.applyingFilter("CIDissolveTransition", parameters: [
+                    kCIInputTargetImageKey: previousMask,
+                    kCIInputTimeKey: 0.25  // 25% previous, 75% current
+                ])
+            }
+            // Store current mask for next frame (after scaling, before feathering)
+            previousMaskImage = maskImage
             
             // STEP 1: Feather the mask edges for natural hair/shoulder transitions
             // Apply Gaussian blur to the mask itself to soften hard edges
