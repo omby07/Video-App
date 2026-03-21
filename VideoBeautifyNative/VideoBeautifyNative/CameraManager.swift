@@ -548,35 +548,6 @@ class CameraManager: NSObject, ObservableObject {
 
         return nil
     }
-        
-        // Fallback: create new pixel buffer
-        var pixelBuffer: CVPixelBuffer?
-        let attrs: [String: Any] = [
-            kCVPixelBufferCGImageCompatibilityKey as String: true,
-            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
-            kCVPixelBufferMetalCompatibilityKey as String: true
-        ]
-        
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            width,
-            height,
-            kCVPixelFormatType_32BGRA,
-            attrs as CFDictionary,
-            &pixelBuffer
-        )
-        
-        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
-            return nil
-        }
-
-        ciContext.render(image, to: buffer)
-
-        CVPixelBufferLockBaseAddress(buffer, .readOnly)
-        CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
-
-        return buffer
-    }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
