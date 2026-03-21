@@ -116,9 +116,18 @@ class CameraManager: NSObject, ObservableObject {
             let allGranted = cameraGranted && micGranted
             print("[CameraManager] All permissions granted: \(allGranted)")
             if allGranted {
-                self.setupCaptureSession()
+                // Setup capture session on processing queue to avoid blocking main thread
+                // AVAudioSession.setActive() and captureSession.beginConfiguration() can block
+                self.processingQueue.async {
+                    self.setupCaptureSession()
+                    // Call completion on main thread after setup completes
+                    DispatchQueue.main.async {
+                        completion(true)
+                    }
+                }
+            } else {
+                completion(false)
             }
-            completion(allGranted)
         }
     }
     
