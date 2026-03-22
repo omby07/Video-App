@@ -155,9 +155,11 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            print("[ContentView] onAppear")
             cameraManager.startSession()
         }
         .onDisappear {
+            print("[ContentView] onDisappear")
             cameraManager.stopSession()
         }
         .alert("Video Saved", isPresented: $showingSavedAlert) {

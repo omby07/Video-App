@@ -64,9 +64,12 @@ class CameraManager: NSObject, ObservableObject {
     
     // MARK: - Initialization
     override init() {
+        print("[CameraManager] init() start")
         super.init()
         setupMetal()
+        print("[CameraManager] camera permission status before setup: \(cameraPermissionStatusString())")
         setupCaptureSession()
+        print("[CameraManager] init() end")
     }
     
     // MARK: - Permissions
@@ -119,6 +122,21 @@ class CameraManager: NSObject, ObservableObject {
         }
     }
     
+    private func cameraPermissionStatusString() -> String {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            return "authorized"
+        case .denied:
+            return "denied"
+        case .restricted:
+            return "restricted"
+        case .notDetermined:
+            return "notDetermined"
+        @unknown default:
+            return "unknown"
+        }
+    }
+    
     private func setupMetal() {
         metalDevice = MTLCreateSystemDefaultDevice()
         if let device = metalDevice {
@@ -134,9 +152,12 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     private func setupCaptureSession() {
+        print("[CameraManager] setupCaptureSession() start")
         print("[CameraManager] setupCaptureSession called")
         print("[CameraManager] setupCaptureSession video-only test")
+        print("[CameraManager] before beginConfiguration()")
         captureSession.beginConfiguration()
+        print("[CameraManager] after beginConfiguration()")
         captureSession.sessionPreset = .hd1920x1080
         
         // Add video input (front camera)
@@ -148,6 +169,9 @@ class CameraManager: NSObject, ObservableObject {
         
         if captureSession.canAddInput(videoInput) {
             captureSession.addInput(videoInput)
+            print("[CameraManager] after adding video input")
+        } else {
+            print("[CameraManager] failed adding video input")
         }
         
         // Startup hang isolation: temporarily disable all audio setup.
@@ -163,6 +187,9 @@ class CameraManager: NSObject, ObservableObject {
         
         if captureSession.canAddOutput(videoOutput) {
             captureSession.addOutput(videoOutput)
+            print("[CameraManager] after adding video output")
+        } else {
+            print("[CameraManager] failed adding video output")
         }
         
         // Set video orientation
@@ -171,7 +198,9 @@ class CameraManager: NSObject, ObservableObject {
             connection.isVideoMirrored = true // Mirror for front camera
         }
         
+        print("[CameraManager] before commitConfiguration()")
         captureSession.commitConfiguration()
+        print("[CameraManager] after commitConfiguration()")
         
         // CRITICAL DIAGNOSTIC: Verify final session state
         print("[CameraManager] === SESSION STATE AFTER CONFIG ===")
@@ -192,15 +221,18 @@ class CameraManager: NSObject, ObservableObject {
     
     // MARK: - Session Control
     func startSession() {
-        print("[CameraManager] startSession called")
+        print("[CameraManager] startSession() called")
+        print("[CameraManager] camera permission status before start: \(cameraPermissionStatusString())")
         processingQueue.async { [weak self] in
+            print("[CameraManager] immediately before captureSession.startRunning()")
             self?.captureSession.startRunning()
+            print("[CameraManager] immediately after captureSession.startRunning()")
             print("[CameraManager] Session started")
         }
     }
     
     func stopSession() {
-        print("[CameraManager] stopSession called")
+        print("[CameraManager] stopSession() called")
         processingQueue.async { [weak self] in
             self?.captureSession.stopRunning()
             print("[CameraManager] Session stopped")
