@@ -155,15 +155,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // Request permissions first, then start session
-            cameraManager.checkAndRequestPermissions { granted in
-                permissionsGranted = granted
-                if granted {
-                    cameraManager.startSession()
-                } else {
-                    showingPermissionAlert = true
-                }
-            }
+            cameraManager.startSession()
         }
         .onDisappear {
             cameraManager.stopSession()

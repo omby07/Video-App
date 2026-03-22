@@ -66,7 +66,7 @@ class CameraManager: NSObject, ObservableObject {
     override init() {
         super.init()
         setupMetal()
-        // Note: setupCaptureSession() will be called after permissions are granted
+        setupCaptureSession()
     }
     
     // MARK: - Permissions
@@ -115,19 +115,7 @@ class CameraManager: NSObject, ObservableObject {
         group.notify(queue: .main) {
             let allGranted = cameraGranted && micGranted
             print("[CameraManager] All permissions granted: \(allGranted)")
-            if allGranted {
-                // Setup capture session on processing queue to avoid blocking main thread
-                // AVAudioSession.setActive() and captureSession.beginConfiguration() can block
-                self.processingQueue.async {
-                    self.setupCaptureSession()
-                    // Call completion on main thread after setup completes
-                    DispatchQueue.main.async {
-                        completion(true)
-                    }
-                }
-            } else {
-                completion(false)
-            }
+            completion(allGranted)
         }
     }
     
@@ -146,6 +134,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     private func setupCaptureSession() {
+        print("[CameraManager] setupCaptureSession called")
         captureSession.beginConfiguration()
         captureSession.sessionPreset = .hd1920x1080
         
@@ -165,8 +154,8 @@ class CameraManager: NSObject, ObservableObject {
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
-            try audioSession.setActive(true)
-            print("[CameraManager] AVAudioSession configured and activated")
+            // try audioSession.setActive(true)
+            print("[CameraManager] AVAudioSession configured (activation skipped)")
         } catch {
             print("[CameraManager] ERROR: Failed to configure AVAudioSession: \(error)")
         }
@@ -231,6 +220,7 @@ class CameraManager: NSObject, ObservableObject {
     
     // MARK: - Session Control
     func startSession() {
+        print("[CameraManager] startSession called")
         processingQueue.async { [weak self] in
             self?.captureSession.startRunning()
             print("[CameraManager] Session started")
@@ -238,6 +228,7 @@ class CameraManager: NSObject, ObservableObject {
     }
     
     func stopSession() {
+        print("[CameraManager] stopSession called")
         processingQueue.async { [weak self] in
             self?.captureSession.stopRunning()
             print("[CameraManager] Session stopped")
