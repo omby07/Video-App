@@ -135,6 +135,7 @@ class CameraManager: NSObject, ObservableObject {
     
     private func setupCaptureSession() {
         print("[CameraManager] setupCaptureSession called")
+        print("[CameraManager] setupCaptureSession video-only test")
         captureSession.beginConfiguration()
         captureSession.sessionPreset = .hd1920x1080
         
@@ -149,29 +150,9 @@ class CameraManager: NSObject, ObservableObject {
             captureSession.addInput(videoInput)
         }
         
-        // CRITICAL: Configure AVAudioSession BEFORE adding audio input
-        // Without this, iOS won't route microphone data to the app
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .videoRecording, options: [.defaultToSpeaker, .allowBluetooth])
-            // try audioSession.setActive(true)
-            print("[CameraManager] AVAudioSession configured (activation skipped)")
-        } catch {
-            print("[CameraManager] ERROR: Failed to configure AVAudioSession: \(error)")
-        }
-        
-        // Add audio input (requires AVAudioSession to be configured first)
-        if let audioDevice = AVCaptureDevice.default(for: .audio),
-           let audioInput = try? AVCaptureDeviceInput(device: audioDevice) {
-            if captureSession.canAddInput(audioInput) {
-                captureSession.addInput(audioInput)
-                print("[CameraManager] Audio input added to session")
-            } else {
-                print("[CameraManager] WARNING: Cannot add audio input to session")
-            }
-        } else {
-            print("[CameraManager] WARNING: Failed to get audio device or create audio input")
-        }
+        // Startup hang isolation: temporarily disable all audio setup.
+        // This includes AVAudioSession config/activation, audio input, and audio output wiring.
+        print("[CameraManager] audio setup temporarily disabled")
         
         // Configure video output
         videoOutput.setSampleBufferDelegate(self, queue: processingQueue)
@@ -182,15 +163,6 @@ class CameraManager: NSObject, ObservableObject {
         
         if captureSession.canAddOutput(videoOutput) {
             captureSession.addOutput(videoOutput)
-        }
-        
-        // Configure audio output
-        audioOutput.setSampleBufferDelegate(self, queue: processingQueue)
-        if captureSession.canAddOutput(audioOutput) {
-            captureSession.addOutput(audioOutput)
-            print("[CameraManager] Audio output added to session")
-        } else {
-            print("[CameraManager] WARNING: Cannot add audio output to session")
         }
         
         // Set video orientation
