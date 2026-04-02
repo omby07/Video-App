@@ -36,6 +36,8 @@ class CameraManager: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     private let audioOutput = AVCaptureAudioDataOutput()
     private let processingQueue = DispatchQueue(label: "com.videobeautify.processing", qos: .userInteractive)
+    /// Serial queue for all `AVAssetWriter` / input access (append, finish).
+    private let writerQueue = DispatchQueue(label: "com.videobeautify.assetWriter", qos: .userInitiated)
     
     // Metal & Core Image
     private var metalDevice: MTLDevice?
@@ -317,35 +319,41 @@ class CameraManager: NSObject, ObservableObject {
         
         print("[CameraManager] Stopping recording. Total frames written: \(frameCount)")
         
-        videoInput?.markAsFinished()
-        audioInput?.markAsFinished()
+        // Ensure capture callbacks that enqueue writer work have finished before finishing the writer.
+        processingQueue.sync { }
         
-        assetWriter?.finishWriting { [weak self] in
-            guard let self = self, let url = self.currentRecordingURL else { return }
+        writerQueue.sync { [weak self] in
+            guard let self = self else { return }
+            self.videoInput?.markAsFinished()
+            self.audioInput?.markAsFinished()
             
-            if let error = self.assetWriter?.error {
-                print("[CameraManager] Recording error: \(error)")
-                return
-            }
-            
-            print("[CameraManager] Recording finished: \(url)")
-            
-            // Save to Photos
-            PHPhotoLibrary.requestAuthorization { status in
-                guard status == .authorized || status == .limited else {
-                    print("[CameraManager] Photo library access denied: \(status)")
+            self.assetWriter?.finishWriting { [weak self] in
+                guard let self = self, let url = self.currentRecordingURL else { return }
+                
+                if let error = self.assetWriter?.error {
+                    print("[CameraManager] Recording error: \(error)")
                     return
                 }
                 
-                PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-                } completionHandler: { success, error in
-                    DispatchQueue.main.async {
-                        if success {
-                            print("[CameraManager] Video saved to Photos")
-                            self.lastSavedURL = url
-                        } else {
-                            print("[CameraManager] Failed to save video: \(error?.localizedDescription ?? "unknown")")
+                print("[CameraManager] Recording finished: \(url)")
+                
+                // Save to Photos
+                PHPhotoLibrary.requestAuthorization { status in
+                    guard status == .authorized || status == .limited else {
+                        print("[CameraManager] Photo library access denied: \(status)")
+                        return
+                    }
+                    
+                    PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+                    } completionHandler: { success, error in
+                        DispatchQueue.main.async {
+                            if success {
+                                print("[CameraManager] Video saved to Photos")
+                                self.lastSavedURL = url
+                            } else {
+                                print("[CameraManager] Failed to save video: \(error?.localizedDescription ?? "unknown")")
+                            }
                         }
                     }
                 }
@@ -458,11 +466,12 @@ class CameraManager: NSObject, ObservableObject {
                 ])
                 .cropped(to: extent)
             
-            // Apply detail mask: where mask is dark (edges), keep original
-            // where mask is light (smooth skin), use the blended result
-            result = image
+            // CIBlendWithMask: lighter mask → inputImage (foreground), darker → backgroundImage.
+            // detailMask is light on smooth skin, dark on edges — so foreground must be the
+            // smoothed blend and background the sharp original (not the other way around).
+            result = basicBlend
                 .applyingFilter("CIBlendWithMask", parameters: [
-                    kCIInputBackgroundImageKey: basicBlend,
+                    kCIInputBackgroundImageKey: image,
                     kCIInputMaskImageKey: detailMask
                 ])
                 .cropped(to: extent)
@@ -596,10 +605,12 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
                 self.processedImage = ciImage
             }
             
-            // Write to recording if active
+            // Write to recording if active (writer work off the capture queue)
             if isRecording {
                 let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                writeVideoFrame(processedBuffer, timestamp: timestamp)
+                writerQueue.async { [weak self] in
+                    self?.writeVideoFrame(processedBuffer, timestamp: timestamp)
+                }
             }
         
             
@@ -607,7 +618,12 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapture
             // DIAG: Log audio capture regardless of recording state
             if isRecording {
                 print("[AUDIO-CAPTURE] Audio sample received while recording")
-                writeAudioSample(sampleBuffer)
+                var audioCopy: CMSampleBuffer?
+                guard CMSampleBufferCreateCopy(allocator: kCFAllocatorDefault, sampleBuffer: sampleBuffer, sampleBufferOut: &audioCopy) == noErr,
+                      let bufferCopy = audioCopy else { return }
+                writerQueue.async { [weak self] in
+                    self?.writeAudioSample(bufferCopy)
+                }
             } else {
                 // Only log occasionally when not recording to avoid spam
             }
